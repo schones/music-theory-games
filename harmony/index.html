@@ -3,215 +3,1309 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Interval Training — Music Theory Games</title>
+  <title>Harmony Training — Music Theory Games</title>
   <link rel="stylesheet" href="../shared/styles.css">
-  <link rel="stylesheet" href="styles.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+  <style>
+    /* ---- Dark theme overrides ---- */
+    body.harmony-dark {
+      --color-bg: #0f0a1a;
+      --color-bg-card: rgba(30, 20, 50, 0.85);
+      --color-text: #e8e0f0;
+      --color-text-light: #b0a0c8;
+      --color-text-muted: #706088;
+      --color-text-inverse: #ffffff;
+      --color-border: rgba(108, 92, 231, 0.25);
+      background: linear-gradient(135deg, #0f0a1a 0%, #1a1035 25%, #12082a 50%, #0d1a2e 75%, #0f0a1a 100%);
+      background-size: 400% 400%;
+      animation: gradientShift 15s ease infinite;
+      color: var(--color-text);
+    }
+
+    body.harmony-dark .mtt-header {
+      background: rgba(15, 10, 26, 0.95);
+      border-bottom-color: rgba(108, 92, 231, 0.2);
+    }
+
+    body.harmony-dark .card {
+      background: var(--color-bg-card);
+      border: 1px solid rgba(108, 92, 231, 0.15);
+    }
+
+    body.harmony-dark .form-select,
+    body.harmony-dark .form-input {
+      background: rgba(20, 12, 35, 0.9);
+      border-color: rgba(108, 92, 231, 0.3);
+      color: var(--color-text);
+    }
+
+    body.harmony-dark .form-select:focus,
+    body.harmony-dark .form-input:focus {
+      border-color: var(--color-primary-light);
+    }
+
+    body.harmony-dark .form-select {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23b0a0c8' stroke-width='2' fill='none'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+    }
+
+    body.harmony-dark .leaderboard__row {
+      background: rgba(108, 92, 231, 0.08);
+    }
+
+    body.harmony-dark .leaderboard__row:nth-child(1) {
+      background: rgba(253, 203, 110, 0.1);
+    }
+
+    body.harmony-dark .leaderboard__row:nth-child(2) {
+      background: rgba(178, 190, 195, 0.08);
+    }
+
+    body.harmony-dark .leaderboard__row:nth-child(3) {
+      background: rgba(205, 127, 50, 0.08);
+    }
+
+    @keyframes gradientShift {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      body.harmony-dark {
+        animation: none;
+        background-size: 100% 100%;
+      }
+    }
+
+    /* ---- Layout ---- */
+    .harmony-page {
+      max-width: 700px;
+      margin: 0 auto;
+      padding: var(--space-xl) var(--space-lg) var(--space-3xl);
+    }
+
+    .harmony-screen {
+      animation: fade-in 0.3s ease-out;
+    }
+
+    .harmony-screen[hidden] {
+      display: none;
+    }
+
+    /* ---- Setup ---- */
+    .harmony-setup__grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-lg);
+      margin-top: var(--space-xl);
+    }
+
+    @media (max-width: 560px) {
+      .harmony-setup__grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* ---- Game area ---- */
+    .harmony-game-card {
+      background: var(--color-bg-card);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-md);
+      padding: var(--space-xl);
+      border: 1px solid rgba(108, 92, 231, 0.15);
+    }
+
+    .harmony-info-row {
+      display: flex;
+      justify-content: center;
+      gap: var(--space-xl);
+      flex-wrap: wrap;
+      margin-bottom: var(--space-lg);
+    }
+
+    .harmony-info-item {
+      text-align: center;
+    }
+
+    .harmony-info-value {
+      font-size: var(--font-size-2xl);
+      font-weight: var(--font-weight-extra-bold);
+      color: var(--color-primary-light);
+      line-height: 1;
+    }
+
+    .harmony-info-label {
+      font-size: var(--font-size-xs);
+      color: var(--color-text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-top: var(--space-xs);
+    }
+
+    /* ---- Practice info panel ---- */
+    .harmony-practice-info {
+      background: rgba(108, 92, 231, 0.08);
+      border-radius: var(--radius-md);
+      padding: var(--space-md) var(--space-lg);
+      margin-bottom: var(--space-lg);
+      text-align: center;
+    }
+
+    .harmony-practice-info p {
+      margin: var(--space-xs) 0;
+      font-size: var(--font-size-sm);
+      color: var(--color-text-light);
+    }
+
+    .harmony-practice-info .freq-highlight {
+      color: var(--color-primary-light);
+      font-weight: var(--font-weight-bold);
+      font-family: var(--font-family-mono);
+    }
+
+    /* ---- Play buttons ---- */
+    .harmony-play-buttons {
+      display: flex;
+      gap: var(--space-md);
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: var(--space-lg);
+    }
+
+    /* ---- Tuner ---- */
+    .harmony-tuner-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-bottom: var(--space-lg);
+    }
+
+    .harmony-tuner-canvas {
+      width: 320px;
+      height: 180px;
+    }
+
+    .harmony-tuner-readout {
+      margin-top: var(--space-sm);
+      text-align: center;
+      font-family: var(--font-family-mono);
+      font-size: var(--font-size-sm);
+      color: var(--color-text-light);
+      min-height: 1.5em;
+    }
+
+    /* ---- Feedback ---- */
+    .harmony-feedback {
+      text-align: center;
+      font-size: var(--font-size-lg);
+      font-weight: var(--font-weight-bold);
+      min-height: 2em;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: var(--space-md);
+    }
+
+    .harmony-feedback--success {
+      color: var(--color-success-light);
+    }
+
+    .harmony-feedback--error {
+      color: var(--color-error-light);
+    }
+
+    /* ---- Controls row ---- */
+    .harmony-controls-row {
+      display: flex;
+      justify-content: center;
+      gap: var(--space-md);
+      flex-wrap: wrap;
+    }
+
+    /* ---- Selector row ---- */
+    .harmony-selector-row {
+      display: flex;
+      gap: var(--space-md);
+      justify-content: center;
+      flex-wrap: wrap;
+      align-items: end;
+      margin-bottom: var(--space-lg);
+    }
+
+    .harmony-selector-row .form-group {
+      min-width: 140px;
+    }
+
+    /* ---- Results ---- */
+    .harmony-results-card {
+      text-align: center;
+    }
+
+    /* ---- Name prompt modal ---- */
+    .harmony-modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 200;
+      animation: fade-in 0.2s ease-out;
+    }
+
+    .harmony-modal-overlay[hidden] {
+      display: none;
+    }
+
+    .harmony-modal {
+      background: var(--color-bg-card);
+      border-radius: var(--radius-lg);
+      padding: var(--space-xl);
+      max-width: 400px;
+      width: 90%;
+      box-shadow: var(--shadow-lg);
+      border: 1px solid rgba(108, 92, 231, 0.2);
+    }
+
+    .harmony-modal h3 {
+      margin-bottom: var(--space-md);
+      color: var(--color-primary-light);
+    }
+
+    .harmony-modal .form-group {
+      margin-bottom: var(--space-lg);
+    }
+
+    .harmony-modal-buttons {
+      display: flex;
+      gap: var(--space-md);
+      justify-content: center;
+    }
+
+    /* ---- Test progress bar ---- */
+    .harmony-progress-bar {
+      width: 100%;
+      height: 6px;
+      background: rgba(108, 92, 231, 0.15);
+      border-radius: var(--radius-full);
+      margin-bottom: var(--space-lg);
+      overflow: hidden;
+    }
+
+    .harmony-progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--color-primary), var(--color-secondary));
+      border-radius: var(--radius-full);
+      transition: width 0.4s ease;
+    }
+  </style>
 </head>
-<body>
+<body class="harmony-dark">
   <header class="mtt-header">
     <a href="../index.html" class="mtt-header__logo" style="text-decoration:none">
       <span aria-hidden="true">&#9835;</span> Music Theory Games
     </a>
     <nav class="mtt-header__nav">
       <a href="../index.html" class="mtt-header__link">Home</a>
-      <a href="#" class="mtt-header__link mtt-header__link--active">Intervals</a>
+      <a href="#" class="mtt-header__link mtt-header__link--active">Harmony</a>
     </nav>
   </header>
 
   <main class="container">
-    <!-- ===== Setup Screen ===== -->
-    <section id="screen-setup" class="harmony-screen">
-      <div class="harmony-setup">
-        <h1 class="text-center mb-lg">Interval Training</h1>
+    <div class="harmony-page">
+
+      <!-- ===== Setup Screen ===== -->
+      <section id="screen-setup" class="harmony-screen">
+        <h1 class="text-center mb-md">Harmony Training</h1>
         <p class="text-center mb-lg" style="color: var(--color-text-light);">
-          Listen to two notes and identify the interval. Choose your settings below.
+          Sing or play the target note to match the interval. Train your ear and voice!
         </p>
 
         <div class="harmony-setup__grid">
-          <!-- Player Name -->
           <div class="form-group">
-            <label class="form-label" for="player-name">Your Name</label>
-            <input type="text" id="player-name" class="form-input"
-                   placeholder="Enter your name" maxlength="30" value="Player">
-          </div>
-
-          <!-- Mode -->
-          <div class="form-group">
-            <label class="form-label" for="game-mode">Mode</label>
-            <select id="game-mode" class="form-select">
-              <option value="practice">Practice (no timer, unlimited)</option>
-              <option value="test-10">Test — 10 Questions</option>
-              <option value="test-20">Test — 20 Questions</option>
+            <label class="form-label" for="sel-mode">Mode</label>
+            <select id="sel-mode" class="form-select" aria-label="Game mode">
+              <option value="practice">Practice</option>
+              <option value="test">Test</option>
             </select>
           </div>
 
-          <!-- Difficulty -->
           <div class="form-group">
-            <label class="form-label" for="difficulty">Difficulty</label>
-            <select id="difficulty" class="form-select">
-              <option value="easy">Easy (5 intervals)</option>
-              <option value="medium">Medium (10 intervals)</option>
-              <option value="hard">Hard (all 13 intervals)</option>
+            <label class="form-label" for="sel-difficulty">Difficulty</label>
+            <select id="sel-difficulty" class="form-select" aria-label="Difficulty level">
+              <option value="easy">Easy (&plusmn;50 cents)</option>
+              <option value="medium">Medium (&plusmn;30 cents)</option>
+              <option value="hard">Hard (&plusmn;15 cents)</option>
             </select>
           </div>
 
-          <!-- Root Note -->
           <div class="form-group">
-            <label class="form-label" for="root-note">Root Note</label>
-            <select id="root-note" class="form-select">
-              <!-- Populated by JS -->
-            </select>
+            <label class="form-label" for="sel-root">Root Note</label>
+            <select id="sel-root" class="form-select" aria-label="Root note"></select>
           </div>
 
-          <!-- Direction -->
           <div class="form-group">
-            <label class="form-label" for="direction">Direction</label>
-            <select id="direction" class="form-select">
-              <option value="melodic-up">Ascending</option>
-              <option value="melodic-down">Descending</option>
-              <option value="harmonic">Harmonic (simultaneous)</option>
+            <label class="form-label" for="sel-interval">Interval</label>
+            <select id="sel-interval" class="form-select" aria-label="Interval">
+              <option value="0">Unison (0 semitones)</option>
+              <option value="3">Minor 3rd (3 semitones)</option>
+              <option value="4">Major 3rd (4 semitones)</option>
+              <option value="7">Perfect 5th (7 semitones)</option>
+              <option value="12">Octave (12 semitones)</option>
             </select>
           </div>
         </div>
 
         <div class="text-center mt-xl">
-          <button id="btn-start" class="btn btn--primary btn--large">
-            Start Playing
-          </button>
+          <button id="btn-start" class="btn btn--primary btn--large">Start Training</button>
         </div>
 
-        <!-- Leaderboard preview -->
         <div class="mt-xl">
           <h3 class="leaderboard__title">
             <span aria-hidden="true">&#127942;</span> Top Scores
           </h3>
           <div id="setup-leaderboard" class="leaderboard"></div>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <!-- ===== Game Screen ===== -->
-    <section id="screen-game" class="harmony-screen" hidden>
-      <div class="harmony-game">
-        <!-- Score bar -->
-        <div class="harmony-scorebar">
-          <div class="score-display">
-            <div class="score-display__item">
-              <div class="score-display__value" id="score-value">0</div>
-              <div class="score-display__label">Score</div>
+      <!-- ===== Game Screen ===== -->
+      <section id="screen-game" class="harmony-screen" hidden>
+        <div class="harmony-game-card">
+
+          <!-- Stats row -->
+          <div class="harmony-info-row" id="stats-row">
+            <div class="harmony-info-item">
+              <div class="harmony-info-value" id="stat-score">0</div>
+              <div class="harmony-info-label">Score</div>
             </div>
-            <div class="score-display__item">
-              <div class="score-display__value" id="streak-value">0</div>
-              <div class="score-display__label">Streak</div>
+            <div class="harmony-info-item">
+              <div class="harmony-info-value" id="stat-attempts">0</div>
+              <div class="harmony-info-label">Attempts</div>
             </div>
-            <div class="score-display__item" id="question-counter-wrap">
-              <div class="score-display__value" id="question-value">1/10</div>
-              <div class="score-display__label">Question</div>
+            <div class="harmony-info-item">
+              <div class="harmony-info-value" id="stat-accuracy">--</div>
+              <div class="harmony-info-label">Accuracy</div>
+            </div>
+            <div class="harmony-info-item">
+              <div class="harmony-info-value" id="stat-streak">0</div>
+              <div class="harmony-info-label">Streak</div>
             </div>
           </div>
-        </div>
 
-        <!-- Gauge -->
-        <div class="harmony-gauge-area" id="gauge-area" hidden>
-          <div class="gauge">
-            <svg class="gauge__svg" viewBox="0 0 220 130">
-              <!-- Background arc -->
-              <path class="gauge__arc-bg"
-                    d="M 20 110 A 90 90 0 0 1 200 110" />
-              <!-- Zone arcs -->
-              <path class="gauge__arc-red"
-                    d="M 20 110 A 90 90 0 0 1 50 38" />
-              <path class="gauge__arc-yellow"
-                    d="M 50 38 A 90 90 0 0 1 80 22" />
-              <path class="gauge__arc-green"
-                    d="M 80 22 A 90 90 0 0 1 140 22" />
-              <path class="gauge__arc-yellow"
-                    d="M 140 22 A 90 90 0 0 1 170 38" />
-              <path class="gauge__arc-red"
-                    d="M 170 38 A 90 90 0 0 1 200 110" />
-              <!-- Needle -->
-              <polygon id="gauge-needle" class="gauge__needle"
-                       points="108,110 112,110 110,25" />
-              <!-- Center dot -->
-              <circle class="gauge__center" cx="110" cy="110" r="6" />
-              <!-- Labels -->
-              <text class="gauge__label" x="110" y="98" id="gauge-note">--</text>
-              <text class="gauge__sublabel" x="110" y="126" id="gauge-cents">0 cents</text>
-            </svg>
+          <!-- Test progress bar -->
+          <div class="harmony-progress-bar" id="progress-bar" hidden>
+            <div class="harmony-progress-fill" id="progress-fill" style="width: 0%"></div>
           </div>
-          <button id="btn-toggle-mic" class="btn btn--secondary btn--small mt-sm">
-            Enable Microphone
-          </button>
-        </div>
 
-        <!-- Playback controls -->
-        <div class="harmony-playback">
-          <button id="btn-replay" class="btn btn--primary btn--large" aria-label="Play interval">
-            &#9654; Play Interval
-          </button>
-          <div id="feedback-text" class="harmony-feedback" aria-live="polite"></div>
-        </div>
-
-        <!-- Answer buttons -->
-        <div id="answer-grid" class="harmony-answers" role="group" aria-label="Interval choices">
-          <!-- Populated by JS based on difficulty -->
-        </div>
-
-        <!-- Score flyaway (positioned absolutely) -->
-        <div id="score-fly" class="harmony-score-fly" aria-hidden="true"></div>
-
-        <!-- Bottom controls -->
-        <div class="harmony-controls">
-          <button id="btn-next" class="btn btn--success" hidden>
-            Next Question &#8594;
-          </button>
-          <button id="btn-quit" class="btn btn--secondary btn--small">
-            Quit
-          </button>
-        </div>
-      </div>
-    </section>
-
-    <!-- ===== Results Screen ===== -->
-    <section id="screen-results" class="harmony-screen" hidden>
-      <div class="harmony-results card">
-        <h2 class="text-center mb-md">Results</h2>
-
-        <div class="score-display mb-lg">
-          <div class="score-display__item">
-            <div class="score-display__value" id="result-score">0</div>
-            <div class="score-display__label">Final Score</div>
+          <!-- Selectors (practice only) -->
+          <div class="harmony-selector-row" id="selector-row">
+            <div class="form-group">
+              <label class="form-label" for="game-sel-root">Root Note</label>
+              <select id="game-sel-root" class="form-select" aria-label="Root note"></select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="game-sel-interval">Interval</label>
+              <select id="game-sel-interval" class="form-select" aria-label="Interval">
+                <option value="0">Unison (0 st)</option>
+                <option value="3">Minor 3rd (3 st)</option>
+                <option value="4">Major 3rd (4 st)</option>
+                <option value="7">Perfect 5th (7 st)</option>
+                <option value="12">Octave (12 st)</option>
+              </select>
+            </div>
           </div>
-          <div class="score-display__item">
-            <div class="score-display__value" id="result-correct">0/0</div>
-            <div class="score-display__label">Correct</div>
+
+          <!-- Practice info panel -->
+          <div class="harmony-practice-info" id="practice-info">
+            <p>Root: <span class="freq-highlight" id="info-root">C4</span> &mdash; <span class="freq-highlight" id="info-root-freq">261.63 Hz</span></p>
+            <p>Target: <span class="freq-highlight" id="info-target">G4</span> &mdash; <span class="freq-highlight" id="info-target-freq">392.00 Hz</span></p>
+            <p>Interval: <span class="freq-highlight" id="info-interval">Perfect 5th</span></p>
           </div>
-          <div class="score-display__item">
-            <div class="score-display__value" id="result-streak">0</div>
-            <div class="score-display__label">Best Streak</div>
+
+          <!-- Play buttons -->
+          <div class="harmony-play-buttons" id="play-buttons">
+            <button id="btn-play-root" class="btn btn--secondary" aria-label="Play root note">Play Root</button>
+            <button id="btn-play-target" class="btn btn--secondary" aria-label="Play target note">Play Target</button>
+            <button id="btn-play-both" class="btn btn--primary" aria-label="Play both notes">Play Both</button>
+          </div>
+
+          <!-- Tuner display -->
+          <div class="harmony-tuner-wrap">
+            <canvas id="tuner-canvas" class="harmony-tuner-canvas" width="640" height="360" aria-label="Pitch tuner display"></canvas>
+            <div class="harmony-tuner-readout" id="tuner-readout" aria-live="polite">Enable microphone to start</div>
+          </div>
+
+          <!-- Mic toggle -->
+          <div class="text-center mb-md">
+            <button id="btn-mic" class="btn btn--secondary btn--small">Enable Microphone</button>
+          </div>
+
+          <!-- Feedback -->
+          <div class="harmony-feedback" id="feedback" aria-live="polite"></div>
+
+          <!-- Controls -->
+          <div class="harmony-controls-row">
+            <button id="btn-stop" class="btn btn--danger btn--small">Stop</button>
           </div>
         </div>
+      </section>
 
-        <div class="mb-lg">
-          <h3 class="leaderboard__title">
-            <span aria-hidden="true">&#127942;</span> Leaderboard
-          </h3>
-          <div id="results-leaderboard" class="leaderboard"></div>
-        </div>
+      <!-- ===== Results Screen ===== -->
+      <section id="screen-results" class="harmony-screen" hidden>
+        <div class="harmony-game-card harmony-results-card">
+          <h2 class="mb-lg">Test Complete!</h2>
 
-        <div class="text-center">
-          <button id="btn-play-again" class="btn btn--primary btn--large">
-            Play Again
-          </button>
-          <a href="../index.html" class="btn btn--secondary btn--large" style="margin-left: var(--space-md);">
-            Home
-          </a>
+          <div class="harmony-info-row mb-lg">
+            <div class="harmony-info-item">
+              <div class="harmony-info-value" id="res-score">0</div>
+              <div class="harmony-info-label">Final Score</div>
+            </div>
+            <div class="harmony-info-item">
+              <div class="harmony-info-value" id="res-correct">0/5</div>
+              <div class="harmony-info-label">Correct</div>
+            </div>
+            <div class="harmony-info-item">
+              <div class="harmony-info-value" id="res-accuracy">0%</div>
+              <div class="harmony-info-label">Accuracy</div>
+            </div>
+            <div class="harmony-info-item">
+              <div class="harmony-info-value" id="res-streak">0</div>
+              <div class="harmony-info-label">Best Streak</div>
+            </div>
+          </div>
+
+          <div class="mb-lg">
+            <h3 class="leaderboard__title">
+              <span aria-hidden="true">&#127942;</span> Leaderboard
+            </h3>
+            <div id="results-leaderboard" class="leaderboard"></div>
+          </div>
+
+          <div class="harmony-controls-row">
+            <button id="btn-again" class="btn btn--primary btn--large">Play Again</button>
+            <a href="../index.html" class="btn btn--secondary btn--large">Home</a>
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
+
+    </div>
   </main>
 
-  <script type="module" src="intervals.js"></script>
+  <!-- Name entry modal -->
+  <div class="harmony-modal-overlay" id="name-modal" hidden>
+    <div class="harmony-modal">
+      <h3 class="text-center">New High Score!</h3>
+      <p class="text-center mb-md" style="color: var(--color-text-light);">Your score made the top 5. Enter your name:</p>
+      <div class="form-group">
+        <input type="text" id="modal-name" class="form-input" placeholder="Your name" maxlength="30" value="Player" aria-label="Your name">
+      </div>
+      <div class="harmony-modal-buttons">
+        <button id="modal-save" class="btn btn--primary">Save Score</button>
+        <button id="modal-skip" class="btn btn--secondary">Skip</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* ================================================================
+       Harmony Training — Inline Game Logic
+       ================================================================ */
+    (function () {
+      'use strict';
+
+      // ---- Constants ----
+      const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+      const INTERVALS = [
+        { semitones: 0, name: 'Unison' },
+        { semitones: 3, name: 'Minor 3rd' },
+        { semitones: 4, name: 'Major 3rd' },
+        { semitones: 7, name: 'Perfect 5th' },
+        { semitones: 12, name: 'Octave' }
+      ];
+      const DIFFICULTY = {
+        easy: { tolerance: 50, label: 'Easy' },
+        medium: { tolerance: 30, label: 'Medium' },
+        hard: { tolerance: 15, label: 'Hard' }
+      };
+      const LEADERBOARD_KEY = 'mtt_leaderboard_harmony_training';
+      const MAX_LEADERBOARD = 5;
+      const TEST_TOTAL = 5; // one of each interval
+
+      // ---- State ----
+      let state = {
+        mode: 'practice',
+        difficulty: 'easy',
+        rootNote: 'C4',
+        intervalSemitones: 7,
+        score: 0,
+        attempts: 0,
+        hits: 0,
+        streak: 0,
+        bestStreak: 0,
+        micActive: false,
+        listening: false,
+        testQueue: [],
+        testIndex: 0,
+        testResults: [],
+        synth: null,
+        audioCtx: null,
+        analyser: null,
+        micStream: null,
+        animFrame: null,
+        successTimeout: null
+      };
+
+      // ---- Utility: note/freq conversion ----
+      function noteToMidi(noteName) {
+        const match = noteName.match(/^([A-G]#?)(\d+)$/);
+        if (!match) return 60;
+        const note = match[1];
+        const octave = parseInt(match[2], 10);
+        const idx = NOTE_NAMES.indexOf(note);
+        return (octave + 1) * 12 + idx;
+      }
+
+      function midiToFreq(midi) {
+        return 440 * Math.pow(2, (midi - 69) / 12);
+      }
+
+      function freqToMidi(freq) {
+        return 69 + 12 * Math.log2(freq / 440);
+      }
+
+      function noteToFreq(noteName) {
+        return midiToFreq(noteToMidi(noteName));
+      }
+
+      function midiToNoteName(midi) {
+        const octave = Math.floor(midi / 12) - 1;
+        const noteIdx = Math.round(midi) % 12;
+        return NOTE_NAMES[noteIdx < 0 ? noteIdx + 12 : noteIdx] + octave;
+      }
+
+      function freqToNoteName(freq) {
+        const midi = freqToMidi(freq);
+        return midiToNoteName(Math.round(midi));
+      }
+
+      function getCentsOff(detectedFreq, targetFreq) {
+        return 1200 * Math.log2(detectedFreq / targetFreq);
+      }
+
+      function getIntervalName(semitones) {
+        const iv = INTERVALS.find(i => i.semitones === semitones);
+        return iv ? iv.name : semitones + ' semitones';
+      }
+
+      function getTargetNoteName(rootNote, semitones) {
+        const rootMidi = noteToMidi(rootNote);
+        return midiToNoteName(rootMidi + semitones);
+      }
+
+      function getTargetFreq(rootNote, semitones) {
+        return midiToFreq(noteToMidi(rootNote) + semitones);
+      }
+
+      // ---- Populate root note selectors (C3-C5 chromatic) ----
+      function populateRootSelectors() {
+        const options = [];
+        for (let octave = 3; octave <= 5; octave++) {
+          for (let i = 0; i < 12; i++) {
+            const name = NOTE_NAMES[i] + octave;
+            options.push(name);
+          }
+        }
+        // include C5 only (already included since octave goes to 5)
+        const selectors = [
+          document.getElementById('sel-root'),
+          document.getElementById('game-sel-root')
+        ];
+        selectors.forEach(sel => {
+          sel.innerHTML = '';
+          options.forEach(n => {
+            const opt = document.createElement('option');
+            opt.value = n;
+            opt.textContent = n;
+            if (n === 'C4') opt.selected = true;
+            sel.appendChild(opt);
+          });
+        });
+      }
+
+      // ---- Leaderboard (localStorage) ----
+      function getLeaderboard() {
+        try {
+          const data = localStorage.getItem(LEADERBOARD_KEY);
+          return data ? JSON.parse(data) : [];
+        } catch {
+          return [];
+        }
+      }
+
+      function saveToLeaderboard(name, score, metadata) {
+        try {
+          const board = getLeaderboard();
+          board.push({
+            playerName: name,
+            score: score,
+            date: new Date().toISOString(),
+            metadata: metadata
+          });
+          board.sort((a, b) => b.score - a.score);
+          if (board.length > MAX_LEADERBOARD) board.length = MAX_LEADERBOARD;
+          localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(board));
+        } catch {
+          // localStorage unavailable
+        }
+      }
+
+      function wouldMakeLeaderboard(score) {
+        const board = getLeaderboard();
+        if (board.length < MAX_LEADERBOARD) return true;
+        return score > board[board.length - 1].score;
+      }
+
+      function renderLeaderboard(containerId) {
+        const container = document.getElementById(containerId);
+        const board = getLeaderboard();
+        if (board.length === 0) {
+          container.innerHTML = '<div class="leaderboard__empty">No scores yet. Be the first!</div>';
+          return;
+        }
+        let html = '<div class="leaderboard__list">';
+        board.forEach((entry, i) => {
+          const d = new Date(entry.date);
+          const dateStr = d.toLocaleDateString();
+          html += `
+            <div class="leaderboard__row">
+              <span class="leaderboard__rank">${i + 1}</span>
+              <span class="leaderboard__name">${escapeHtml(entry.playerName)}</span>
+              <span class="leaderboard__score">${entry.score}</span>
+              <span class="leaderboard__date">${dateStr}</span>
+            </div>`;
+        });
+        html += '</div>';
+        container.innerHTML = html;
+      }
+
+      function escapeHtml(str) {
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+      }
+
+      // ---- Tone.js Synth ----
+      function ensureSynth() {
+        if (!state.synth) {
+          state.synth = new Tone.Synth({
+            oscillator: { type: 'triangle' },
+            envelope: { attack: 0.02, decay: 0.3, sustain: 0.4, release: 0.8 }
+          }).toDestination();
+        }
+      }
+
+      async function initTone() {
+        await Tone.start();
+        ensureSynth();
+      }
+
+      function playNote(noteName, duration) {
+        ensureSynth();
+        const freq = noteToFreq(noteName);
+        state.synth.triggerAttackRelease(freq, duration || '0.6');
+      }
+
+      function playRoot() {
+        playNote(state.rootNote, '0.6');
+      }
+
+      function playTarget() {
+        const targetNote = getTargetNoteName(state.rootNote, state.intervalSemitones);
+        playNote(targetNote, '0.6');
+      }
+
+      function playBoth() {
+        playRoot();
+        setTimeout(() => playTarget(), 650);
+      }
+
+      // ---- Autocorrelation pitch detection ----
+      function autoCorrelate(buffer, sampleRate) {
+        // Check for signal
+        let rms = 0;
+        for (let i = 0; i < buffer.length; i++) {
+          rms += buffer[i] * buffer[i];
+        }
+        rms = Math.sqrt(rms / buffer.length);
+        if (rms < 0.01) return -1; // too quiet
+
+        // Trim edges
+        let r1 = 0;
+        let r2 = buffer.length - 1;
+        const threshold = 0.2;
+        for (let i = 0; i < buffer.length / 2; i++) {
+          if (Math.abs(buffer[i]) < threshold) { r1 = i; break; }
+        }
+        for (let i = 1; i < buffer.length / 2; i++) {
+          if (Math.abs(buffer[buffer.length - i]) < threshold) { r2 = buffer.length - i; break; }
+        }
+
+        const trimBuf = buffer.slice(r1, r2);
+        const len = trimBuf.length;
+
+        // Autocorrelation
+        const corr = new Float32Array(len);
+        for (let i = 0; i < len; i++) {
+          let sum = 0;
+          for (let j = 0; j < len - i; j++) {
+            sum += trimBuf[j] * trimBuf[j + i];
+          }
+          corr[i] = sum;
+        }
+
+        // Find first dip
+        let d = 0;
+        while (corr[d] > corr[d + 1] && d < len - 1) d++;
+
+        // Find peak after dip
+        let maxVal = -1;
+        let maxPos = -1;
+        for (let i = d; i < len; i++) {
+          if (corr[i] > maxVal) {
+            maxVal = corr[i];
+            maxPos = i;
+          }
+        }
+
+        if (maxPos === -1 || maxVal < 0.01) return -1;
+
+        // Parabolic interpolation
+        let t0 = maxPos > 0 ? corr[maxPos - 1] : corr[maxPos];
+        let t1 = corr[maxPos];
+        let t2 = maxPos < len - 1 ? corr[maxPos + 1] : corr[maxPos];
+        let shift = (t2 - t0) / (2 * (2 * t1 - t2 - t0));
+        if (isNaN(shift)) shift = 0;
+
+        return sampleRate / (maxPos + shift);
+      }
+
+      // ---- Microphone ----
+      async function startMic() {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          state.micStream = stream;
+          state.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+          const source = state.audioCtx.createMediaStreamSource(stream);
+          state.analyser = state.audioCtx.createAnalyser();
+          state.analyser.fftSize = 2048;
+          source.connect(state.analyser);
+          state.micActive = true;
+          state.listening = true;
+          document.getElementById('btn-mic').textContent = 'Disable Microphone';
+          document.getElementById('tuner-readout').textContent = 'Listening...';
+          detectPitch();
+        } catch (err) {
+          document.getElementById('tuner-readout').textContent = 'Microphone access denied';
+        }
+      }
+
+      function stopMic() {
+        state.listening = false;
+        state.micActive = false;
+        if (state.animFrame) {
+          cancelAnimationFrame(state.animFrame);
+          state.animFrame = null;
+        }
+        if (state.micStream) {
+          state.micStream.getTracks().forEach(t => t.stop());
+          state.micStream = null;
+        }
+        if (state.audioCtx) {
+          state.audioCtx.close().catch(() => {});
+          state.audioCtx = null;
+        }
+        state.analyser = null;
+        document.getElementById('btn-mic').textContent = 'Enable Microphone';
+        document.getElementById('tuner-readout').textContent = 'Microphone disabled';
+        drawTunerIdle();
+      }
+
+      function detectPitch() {
+        if (!state.listening || !state.analyser) return;
+
+        const bufLen = state.analyser.fftSize;
+        const buffer = new Float32Array(bufLen);
+        state.analyser.getFloatTimeDomainData(buffer);
+
+        const freq = autoCorrelate(buffer, state.audioCtx.sampleRate);
+        if (freq > 0 && freq > 50 && freq < 2000) {
+          processPitch(freq);
+        } else {
+          drawTuner(null);
+          document.getElementById('tuner-readout').textContent = 'Listening... (sing or play a note)';
+        }
+
+        state.animFrame = requestAnimationFrame(detectPitch);
+      }
+
+      function processPitch(freq) {
+        const targetFreq = getTargetFreq(state.rootNote, state.intervalSemitones);
+        const cents = getCentsOff(freq, targetFreq);
+        const detectedNote = freqToNoteName(freq);
+        const tolerance = DIFFICULTY[state.difficulty].tolerance;
+
+        drawTuner(cents);
+
+        const readout = document.getElementById('tuner-readout');
+        readout.textContent = `Detected: ${detectedNote} (${freq.toFixed(1)} Hz) | ${cents >= 0 ? '+' : ''}${cents.toFixed(0)} cents`;
+
+        // Check if within tolerance → success
+        if (Math.abs(cents) <= tolerance) {
+          onHit();
+        }
+      }
+
+      // ---- Tuner Drawing (Arc segments) ----
+      const TUNER_SEGMENTS = 31; // odd number for center segment
+      const SEGMENT_GAP = 2; // degrees gap between segments
+      const ARC_START_DEG = 180; // left
+      const ARC_END_DEG = 0; // right (spans 180 degrees)
+      const ARC_SPAN_DEG = 180;
+      const CENTS_RANGE = 100; // full range: -100 to +100 cents mapped across arc
+
+      function drawTunerIdle() {
+        const canvas = document.getElementById('tuner-canvas');
+        const ctx = canvas.getContext('2d');
+        const w = canvas.width;
+        const h = canvas.height;
+        ctx.clearRect(0, 0, w, h);
+
+        const cx = w / 2;
+        const cy = h - 20;
+        const outerR = Math.min(w, h) - 40;
+        const innerR = outerR - 32;
+
+        drawSegments(ctx, cx, cy, outerR, innerR, null);
+        drawTunerLabels(ctx, cx, cy, outerR);
+      }
+
+      function drawTuner(cents) {
+        const canvas = document.getElementById('tuner-canvas');
+        const ctx = canvas.getContext('2d');
+        const w = canvas.width;
+        const h = canvas.height;
+        ctx.clearRect(0, 0, w, h);
+
+        const cx = w / 2;
+        const cy = h - 20;
+        const outerR = Math.min(w, h) - 40;
+        const innerR = outerR - 32;
+
+        drawSegments(ctx, cx, cy, outerR, innerR, cents);
+        drawTunerLabels(ctx, cx, cy, outerR);
+
+        // Draw needle if we have pitch
+        if (cents !== null) {
+          const clampedCents = Math.max(-CENTS_RANGE, Math.min(CENTS_RANGE, cents));
+          const needleAngle = Math.PI - (clampedCents + CENTS_RANGE) / (2 * CENTS_RANGE) * Math.PI;
+
+          ctx.save();
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 3;
+          ctx.shadowColor = 'rgba(255, 255, 255, 0.6)';
+          ctx.shadowBlur = 8;
+          ctx.beginPath();
+          ctx.moveTo(cx, cy);
+          const needleLen = outerR - 50;
+          ctx.lineTo(
+            cx + Math.cos(needleAngle) * needleLen,
+            cy - Math.sin(needleAngle) * needleLen
+          );
+          ctx.stroke();
+          ctx.restore();
+
+          // Center dot
+          ctx.beginPath();
+          ctx.arc(cx, cy, 6, 0, Math.PI * 2);
+          ctx.fillStyle = '#ffffff';
+          ctx.fill();
+        }
+      }
+
+      function drawSegments(ctx, cx, cy, outerR, innerR, cents) {
+        const totalGap = SEGMENT_GAP * (TUNER_SEGMENTS - 1);
+        const usableDeg = ARC_SPAN_DEG - totalGap;
+        const segDeg = usableDeg / TUNER_SEGMENTS;
+        const tolerance = DIFFICULTY[state.difficulty].tolerance;
+
+        for (let i = 0; i < TUNER_SEGMENTS; i++) {
+          const startDeg = 180 - (i * (segDeg + SEGMENT_GAP));
+          const endDeg = startDeg - segDeg;
+
+          // Map segment index to cents
+          const segCenter = -CENTS_RANGE + (i + 0.5) * (2 * CENTS_RANGE / TUNER_SEGMENTS);
+          const absCents = Math.abs(segCenter);
+
+          // Determine base color based on distance from center
+          let r, g, b;
+          if (absCents <= tolerance * 0.5) {
+            // Green zone
+            r = 0; g = 200; b = 100;
+          } else if (absCents <= tolerance) {
+            // Yellow-green transition
+            const t = (absCents - tolerance * 0.5) / (tolerance * 0.5);
+            r = Math.round(255 * t); g = Math.round(200 - 50 * t); b = Math.round(100 - 80 * t);
+          } else if (absCents <= tolerance * 2) {
+            // Orange zone
+            const t = (absCents - tolerance) / tolerance;
+            r = 255; g = Math.round(150 - 100 * t); b = Math.round(20 - 20 * t);
+          } else {
+            // Red zone
+            r = 220; g = 40; b = 30;
+          }
+
+          // Determine if segment is "lit up"
+          let alpha = 0.2;
+          if (cents !== null) {
+            const clampedCents = Math.max(-CENTS_RANGE, Math.min(CENTS_RANGE, cents));
+            const litIndex = Math.round((clampedCents + CENTS_RANGE) / (2 * CENTS_RANGE) * (TUNER_SEGMENTS - 1));
+            const dist = Math.abs(i - litIndex);
+            if (dist <= 2) {
+              alpha = 1.0 - dist * 0.25;
+            } else {
+              alpha = 0.15;
+            }
+          }
+
+          const startRad = startDeg * Math.PI / 180;
+          const endRad = endDeg * Math.PI / 180;
+
+          ctx.beginPath();
+          ctx.arc(cx, cy, outerR, -startRad, -endRad, false);
+          ctx.arc(cx, cy, innerR, -endRad, -startRad, true);
+          ctx.closePath();
+          ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+          ctx.fill();
+
+          // Add slight border
+          ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${alpha * 0.5})`;
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        }
+      }
+
+      function drawTunerLabels(ctx, cx, cy, outerR) {
+        ctx.font = '600 13px system-ui, sans-serif';
+        ctx.fillStyle = '#b0a0c8';
+        ctx.textAlign = 'center';
+
+        // Flat label (left)
+        ctx.fillText('\u266D', cx - outerR + 10, cy + 18);
+        // Sharp label (right)
+        ctx.fillText('\u266F', cx + outerR - 10, cy + 18);
+        // Center label
+        ctx.font = '700 14px system-ui, sans-serif';
+        ctx.fillStyle = '#e8e0f0';
+        const targetName = getTargetNoteName(state.rootNote, state.intervalSemitones);
+        ctx.fillText(targetName, cx, cy - outerR + 55);
+      }
+
+      // ---- Game logic ----
+      function onHit() {
+        if (state.successTimeout) return; // already processing a hit
+
+        state.hits++;
+        state.attempts++;
+        state.streak++;
+        if (state.streak > state.bestStreak) state.bestStreak = state.streak;
+
+        // Score: base 100 + streak bonus
+        const streakBonus = Math.min(state.streak - 1, 5) * 20;
+        state.score += 100 + streakBonus;
+
+        updateStats();
+        showFeedback('success', streakBonus > 0
+          ? `Correct! +${100 + streakBonus} (streak x${state.streak})`
+          : 'Correct! +100');
+
+        // Auto-stop listening briefly, then advance
+        state.listening = false;
+        if (state.animFrame) {
+          cancelAnimationFrame(state.animFrame);
+          state.animFrame = null;
+        }
+
+        state.successTimeout = setTimeout(() => {
+          state.successTimeout = null;
+          if (state.mode === 'test') {
+            advanceTest();
+          } else {
+            // In practice, resume listening
+            if (state.micActive) {
+              state.listening = true;
+              detectPitch();
+            }
+          }
+        }, 1200);
+      }
+
+      function showFeedback(type, msg) {
+        const el = document.getElementById('feedback');
+        el.textContent = msg;
+        el.className = 'harmony-feedback';
+        if (type === 'success') el.classList.add('harmony-feedback--success');
+        else if (type === 'error') el.classList.add('harmony-feedback--error');
+
+        // Clear after a while
+        setTimeout(() => {
+          if (el.textContent === msg) {
+            el.textContent = '';
+            el.className = 'harmony-feedback';
+          }
+        }, 2500);
+      }
+
+      function updateStats() {
+        document.getElementById('stat-score').textContent = state.score;
+        document.getElementById('stat-attempts').textContent = state.attempts;
+        document.getElementById('stat-accuracy').textContent =
+          state.attempts > 0 ? Math.round(state.hits / state.attempts * 100) + '%' : '--';
+        document.getElementById('stat-streak').textContent = state.streak;
+      }
+
+      function updatePracticeInfo() {
+        const targetName = getTargetNoteName(state.rootNote, state.intervalSemitones);
+        const rootFreq = noteToFreq(state.rootNote);
+        const targetFreq = getTargetFreq(state.rootNote, state.intervalSemitones);
+
+        document.getElementById('info-root').textContent = state.rootNote;
+        document.getElementById('info-root-freq').textContent = rootFreq.toFixed(2) + ' Hz';
+        document.getElementById('info-target').textContent = targetName;
+        document.getElementById('info-target-freq').textContent = targetFreq.toFixed(2) + ' Hz';
+        document.getElementById('info-interval').textContent = getIntervalName(state.intervalSemitones);
+      }
+
+      // ---- Test mode ----
+      function buildTestQueue() {
+        // Cycle through all 5 intervals. Shuffle them.
+        const pool = INTERVALS.map(iv => iv.semitones);
+        // Fisher-Yates shuffle
+        for (let i = pool.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [pool[i], pool[j]] = [pool[j], pool[i]];
+        }
+        return pool;
+      }
+
+      function advanceTest() {
+        state.testIndex++;
+        if (state.testIndex >= state.testQueue.length) {
+          endTest();
+          return;
+        }
+
+        state.intervalSemitones = state.testQueue[state.testIndex];
+        updatePracticeInfo();
+        updateProgressBar();
+
+        // Play root note for the new question
+        playRoot();
+
+        // Resume pitch detection
+        if (state.micActive) {
+          state.listening = true;
+          detectPitch();
+        }
+
+        showFeedback('', `Interval ${state.testIndex + 1} of ${state.testQueue.length} — Listen to the root note`);
+        drawTunerIdle();
+      }
+
+      function updateProgressBar() {
+        const fill = document.getElementById('progress-fill');
+        const pct = ((state.testIndex) / state.testQueue.length) * 100;
+        fill.style.width = pct + '%';
+      }
+
+      function endTest() {
+        // Stop mic
+        stopMic();
+        if (state.successTimeout) {
+          clearTimeout(state.successTimeout);
+          state.successTimeout = null;
+        }
+
+        // Show results
+        showScreen('results');
+
+        document.getElementById('res-score').textContent = state.score;
+        document.getElementById('res-correct').textContent = state.hits + '/' + state.testQueue.length;
+        document.getElementById('res-accuracy').textContent =
+          state.testQueue.length > 0 ? Math.round(state.hits / state.testQueue.length * 100) + '%' : '0%';
+        document.getElementById('res-streak').textContent = state.bestStreak;
+
+        // Check if makes leaderboard
+        if (state.score > 0 && wouldMakeLeaderboard(state.score)) {
+          showNameModal();
+        } else {
+          renderLeaderboard('results-leaderboard');
+        }
+      }
+
+      // ---- Name modal ----
+      function showNameModal() {
+        document.getElementById('name-modal').hidden = false;
+        document.getElementById('modal-name').focus();
+      }
+
+      function hideNameModal() {
+        document.getElementById('name-modal').hidden = true;
+      }
+
+      // ---- Screen management ----
+      function showScreen(name) {
+        document.getElementById('screen-setup').hidden = name !== 'setup';
+        document.getElementById('screen-game').hidden = name !== 'game';
+        document.getElementById('screen-results').hidden = name !== 'results';
+      }
+
+      // ---- Start game ----
+      async function startGame() {
+        await initTone();
+
+        state.mode = document.getElementById('sel-mode').value;
+        state.difficulty = document.getElementById('sel-difficulty').value;
+        state.rootNote = document.getElementById('sel-root').value;
+        state.intervalSemitones = parseInt(document.getElementById('sel-interval').value, 10);
+        state.score = 0;
+        state.attempts = 0;
+        state.hits = 0;
+        state.streak = 0;
+        state.bestStreak = 0;
+        state.testIndex = 0;
+        state.testResults = [];
+
+        // Sync game selectors
+        document.getElementById('game-sel-root').value = state.rootNote;
+        document.getElementById('game-sel-interval').value = state.intervalSemitones;
+
+        if (state.mode === 'test') {
+          state.testQueue = buildTestQueue();
+          state.intervalSemitones = state.testQueue[0];
+
+          // Hide practice-only elements
+          document.getElementById('play-buttons').hidden = true;
+          document.getElementById('practice-info').hidden = true;
+          document.getElementById('selector-row').hidden = true;
+          document.getElementById('progress-bar').hidden = false;
+          document.getElementById('game-sel-interval').disabled = true;
+          updateProgressBar();
+        } else {
+          // Show practice elements
+          document.getElementById('play-buttons').hidden = false;
+          document.getElementById('practice-info').hidden = false;
+          document.getElementById('selector-row').hidden = false;
+          document.getElementById('progress-bar').hidden = true;
+          document.getElementById('game-sel-interval').disabled = false;
+        }
+
+        updatePracticeInfo();
+        updateStats();
+        showScreen('game');
+        drawTunerIdle();
+
+        // In test mode, play root note automatically
+        if (state.mode === 'test') {
+          setTimeout(() => {
+            playRoot();
+            showFeedback('', `Interval 1 of ${state.testQueue.length} — Listen to the root note`);
+          }, 300);
+        }
+      }
+
+      function stopGame() {
+        stopMic();
+        if (state.successTimeout) {
+          clearTimeout(state.successTimeout);
+          state.successTimeout = null;
+        }
+        showScreen('setup');
+        renderLeaderboard('setup-leaderboard');
+      }
+
+      // ---- Event Listeners ----
+      document.getElementById('btn-start').addEventListener('click', startGame);
+      document.getElementById('btn-stop').addEventListener('click', stopGame);
+      document.getElementById('btn-again').addEventListener('click', () => {
+        showScreen('setup');
+        renderLeaderboard('setup-leaderboard');
+      });
+
+      document.getElementById('btn-play-root').addEventListener('click', async () => {
+        await initTone();
+        playRoot();
+      });
+      document.getElementById('btn-play-target').addEventListener('click', async () => {
+        await initTone();
+        playTarget();
+      });
+      document.getElementById('btn-play-both').addEventListener('click', async () => {
+        await initTone();
+        playBoth();
+      });
+
+      document.getElementById('btn-mic').addEventListener('click', () => {
+        if (state.micActive) {
+          stopMic();
+        } else {
+          startMic();
+        }
+      });
+
+      // Game selectors (practice mode live updates)
+      document.getElementById('game-sel-root').addEventListener('change', (e) => {
+        state.rootNote = e.target.value;
+        updatePracticeInfo();
+        drawTunerIdle();
+      });
+      document.getElementById('game-sel-interval').addEventListener('change', (e) => {
+        state.intervalSemitones = parseInt(e.target.value, 10);
+        updatePracticeInfo();
+        drawTunerIdle();
+      });
+
+      // Name modal
+      document.getElementById('modal-save').addEventListener('click', () => {
+        const name = document.getElementById('modal-name').value.trim() || 'Player';
+        saveToLeaderboard(name, state.score, {
+          difficulty: state.difficulty,
+          hits: state.hits,
+          total: state.testQueue.length,
+          bestStreak: state.bestStreak
+        });
+        hideNameModal();
+        renderLeaderboard('results-leaderboard');
+      });
+
+      document.getElementById('modal-skip').addEventListener('click', () => {
+        hideNameModal();
+        renderLeaderboard('results-leaderboard');
+      });
+
+      // Allow Enter key in name modal
+      document.getElementById('modal-name').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          document.getElementById('modal-save').click();
+        }
+      });
+
+      // ---- Init ----
+      populateRootSelectors();
+      renderLeaderboard('setup-leaderboard');
+      drawTunerIdle();
+    })();
+  </script>
 </body>
 </html>
