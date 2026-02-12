@@ -4,149 +4,214 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Interval Training — Music Theory Games</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../shared/styles.css">
   <link rel="stylesheet" href="styles.css">
-  <script src="https://cdn.jsdelivr.net/npm/tone@14/build/Tone.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
 </head>
 <body>
-  <div class="container">
-    <header class="game-header">
-      <a href="../index.html" class="back-link" aria-label="Back to hub">&larr; Back</a>
-      <h1>Interval Training</h1>
-    </header>
+  <header class="mtt-header">
+    <a href="../index.html" class="mtt-header__logo" style="text-decoration:none">
+      <span aria-hidden="true">&#9835;</span> Music Theory Games
+    </a>
+    <nav class="mtt-header__nav">
+      <a href="../index.html" class="mtt-header__link">Home</a>
+      <a href="#" class="mtt-header__link mtt-header__link--active">Intervals</a>
+    </nav>
+  </header>
 
+  <main class="container">
     <!-- ===== Setup Screen ===== -->
-    <div id="setup-screen" class="screen active">
-      <div class="card setup-card">
-        <h2 class="text-center mb-lg">Game Setup</h2>
+    <section id="screen-setup" class="harmony-screen">
+      <div class="harmony-setup">
+        <h1 class="text-center mb-lg">Interval Training</h1>
+        <p class="text-center mb-lg" style="color: var(--color-text-light);">
+          Listen to two notes and identify the interval. Choose your settings below.
+        </p>
 
-        <div class="form-group">
-          <label for="player-name">Your Name</label>
-          <input type="text" id="player-name" class="form-input" placeholder="Enter your name" maxlength="20" autocomplete="off">
-        </div>
+        <div class="harmony-setup__grid">
+          <!-- Player Name -->
+          <div class="form-group">
+            <label class="form-label" for="player-name">Your Name</label>
+            <input type="text" id="player-name" class="form-input"
+                   placeholder="Enter your name" maxlength="30" value="Player">
+          </div>
 
-        <div class="form-group">
-          <label>Mode</label>
-          <div class="btn-group" role="radiogroup" aria-label="Game mode">
-            <button class="btn btn--secondary active" data-mode="practice" role="radio" aria-checked="true">Practice</button>
-            <button class="btn btn--secondary" data-mode="test" role="radio" aria-checked="false">Test</button>
+          <!-- Mode -->
+          <div class="form-group">
+            <label class="form-label" for="game-mode">Mode</label>
+            <select id="game-mode" class="form-select">
+              <option value="practice">Practice (no timer, unlimited)</option>
+              <option value="test-10">Test — 10 Questions</option>
+              <option value="test-20">Test — 20 Questions</option>
+            </select>
+          </div>
+
+          <!-- Difficulty -->
+          <div class="form-group">
+            <label class="form-label" for="difficulty">Difficulty</label>
+            <select id="difficulty" class="form-select">
+              <option value="easy">Easy (5 intervals)</option>
+              <option value="medium">Medium (10 intervals)</option>
+              <option value="hard">Hard (all 13 intervals)</option>
+            </select>
+          </div>
+
+          <!-- Root Note -->
+          <div class="form-group">
+            <label class="form-label" for="root-note">Root Note</label>
+            <select id="root-note" class="form-select">
+              <!-- Populated by JS -->
+            </select>
+          </div>
+
+          <!-- Direction -->
+          <div class="form-group">
+            <label class="form-label" for="direction">Direction</label>
+            <select id="direction" class="form-select">
+              <option value="melodic-up">Ascending</option>
+              <option value="melodic-down">Descending</option>
+              <option value="harmonic">Harmonic (simultaneous)</option>
+            </select>
           </div>
         </div>
 
-        <div class="form-group">
-          <label>Difficulty</label>
-          <div class="btn-group" role="radiogroup" aria-label="Difficulty level">
-            <button class="btn btn--secondary active" data-difficulty="easy" role="radio" aria-checked="true">Easy</button>
-            <button class="btn btn--secondary" data-difficulty="medium" role="radio" aria-checked="false">Medium</button>
-            <button class="btn btn--secondary" data-difficulty="hard" role="radio" aria-checked="false">Hard</button>
-          </div>
+        <div class="text-center mt-xl">
+          <button id="btn-start" class="btn btn--primary btn--large">
+            Start Playing
+          </button>
         </div>
 
-        <div class="form-group">
-          <label for="root-note">Root Note</label>
-          <select id="root-note" class="form-select"></select>
+        <!-- Leaderboard preview -->
+        <div class="mt-xl">
+          <h3 class="leaderboard__title">
+            <span aria-hidden="true">&#127942;</span> Top Scores
+          </h3>
+          <div id="setup-leaderboard" class="leaderboard"></div>
         </div>
-
-        <div class="form-group">
-          <label class="mic-toggle">
-            <input type="checkbox" id="enable-mic">
-            <span>Enable microphone (sing/play the note)</span>
-          </label>
-        </div>
-
-        <button id="start-btn" class="btn btn--primary btn--large btn--block mt-lg">Start Game</button>
       </div>
-    </div>
+    </section>
 
     <!-- ===== Game Screen ===== -->
-    <div id="game-screen" class="screen">
-      <div class="stats-bar">
-        <div class="stat">
-          <span class="stat__value" id="score-display">0</span>
-          <span class="stat__label">Score</span>
-        </div>
-        <div class="stat">
-          <span class="stat__value" id="streak-display">0</span>
-          <span class="stat__label">Streak</span>
-        </div>
-        <div class="stat" id="question-counter-wrapper">
-          <span class="stat__value" id="question-display">1/20</span>
-          <span class="stat__label">Question</span>
-        </div>
-        <div class="stat" id="timer-wrapper">
-          <span class="stat__value" id="timer-display">--</span>
-          <span class="stat__label">Time</span>
-        </div>
-      </div>
-
-      <!-- Tuner Gauge -->
-      <div id="tuner-section" class="tuner-section" hidden>
-        <div class="tuner-gauge" id="tuner-gauge" aria-label="Pitch tuner gauge">
-          <div class="tuner-gauge__arc"></div>
-          <div class="tuner-gauge__needle" id="tuner-needle"></div>
-          <div class="tuner-gauge__center-dot"></div>
-          <div class="tuner-gauge__labels">
-            <span class="tuner-gauge__label tuner-gauge__label--flat">Flat</span>
-            <span class="tuner-gauge__label tuner-gauge__label--sharp">Sharp</span>
+    <section id="screen-game" class="harmony-screen" hidden>
+      <div class="harmony-game">
+        <!-- Score bar -->
+        <div class="harmony-scorebar">
+          <div class="score-display">
+            <div class="score-display__item">
+              <div class="score-display__value" id="score-value">0</div>
+              <div class="score-display__label">Score</div>
+            </div>
+            <div class="score-display__item">
+              <div class="score-display__value" id="streak-value">0</div>
+              <div class="score-display__label">Streak</div>
+            </div>
+            <div class="score-display__item" id="question-counter-wrap">
+              <div class="score-display__value" id="question-value">1/10</div>
+              <div class="score-display__label">Question</div>
+            </div>
           </div>
         </div>
-        <div class="tuner-info">
-          <span id="detected-note" class="tuner-info__note">--</span>
-          <span id="detected-freq" class="tuner-info__freq">-- Hz</span>
-          <span id="detected-cents" class="tuner-info__cents">-- cents</span>
+
+        <!-- Gauge -->
+        <div class="harmony-gauge-area" id="gauge-area" hidden>
+          <div class="gauge">
+            <svg class="gauge__svg" viewBox="0 0 220 130">
+              <!-- Background arc -->
+              <path class="gauge__arc-bg"
+                    d="M 20 110 A 90 90 0 0 1 200 110" />
+              <!-- Zone arcs -->
+              <path class="gauge__arc-red"
+                    d="M 20 110 A 90 90 0 0 1 50 38" />
+              <path class="gauge__arc-yellow"
+                    d="M 50 38 A 90 90 0 0 1 80 22" />
+              <path class="gauge__arc-green"
+                    d="M 80 22 A 90 90 0 0 1 140 22" />
+              <path class="gauge__arc-yellow"
+                    d="M 140 22 A 90 90 0 0 1 170 38" />
+              <path class="gauge__arc-red"
+                    d="M 170 38 A 90 90 0 0 1 200 110" />
+              <!-- Needle -->
+              <polygon id="gauge-needle" class="gauge__needle"
+                       points="108,110 112,110 110,25" />
+              <!-- Center dot -->
+              <circle class="gauge__center" cx="110" cy="110" r="6" />
+              <!-- Labels -->
+              <text class="gauge__label" x="110" y="98" id="gauge-note">--</text>
+              <text class="gauge__sublabel" x="110" y="126" id="gauge-cents">0 cents</text>
+            </svg>
+          </div>
+          <button id="btn-toggle-mic" class="btn btn--secondary btn--small mt-sm">
+            Enable Microphone
+          </button>
+        </div>
+
+        <!-- Playback controls -->
+        <div class="harmony-playback">
+          <button id="btn-replay" class="btn btn--primary btn--large" aria-label="Play interval">
+            &#9654; Play Interval
+          </button>
+          <div id="feedback-text" class="harmony-feedback" aria-live="polite"></div>
+        </div>
+
+        <!-- Answer buttons -->
+        <div id="answer-grid" class="harmony-answers" role="group" aria-label="Interval choices">
+          <!-- Populated by JS based on difficulty -->
+        </div>
+
+        <!-- Score flyaway (positioned absolutely) -->
+        <div id="score-fly" class="harmony-score-fly" aria-hidden="true"></div>
+
+        <!-- Bottom controls -->
+        <div class="harmony-controls">
+          <button id="btn-next" class="btn btn--success" hidden>
+            Next Question &#8594;
+          </button>
+          <button id="btn-quit" class="btn btn--secondary btn--small">
+            Quit
+          </button>
         </div>
       </div>
-
-      <!-- Play Again button -->
-      <div class="text-center mb-lg">
-        <button id="replay-btn" class="btn btn--accent btn--large" aria-label="Play the interval again">
-          &#9654; Play Interval
-        </button>
-      </div>
-
-      <!-- Interval Buttons -->
-      <div id="interval-buttons" class="interval-grid" role="group" aria-label="Choose an interval"></div>
-
-      <!-- Feedback Overlay -->
-      <div id="feedback" class="feedback" hidden>
-        <div class="feedback__content" id="feedback-content"></div>
-      </div>
-    </div>
+    </section>
 
     <!-- ===== Results Screen ===== -->
-    <div id="results-screen" class="screen">
-      <div class="card results-card text-center">
-        <h2 class="mb-md">Game Over!</h2>
-        <div class="results-score">
-          <span class="results-score__value" id="final-score">0</span>
-          <span class="results-score__label">Points</span>
+    <section id="screen-results" class="harmony-screen" hidden>
+      <div class="harmony-results card">
+        <h2 class="text-center mb-md">Results</h2>
+
+        <div class="score-display mb-lg">
+          <div class="score-display__item">
+            <div class="score-display__value" id="result-score">0</div>
+            <div class="score-display__label">Final Score</div>
+          </div>
+          <div class="score-display__item">
+            <div class="score-display__value" id="result-correct">0/0</div>
+            <div class="score-display__label">Correct</div>
+          </div>
+          <div class="score-display__item">
+            <div class="score-display__value" id="result-streak">0</div>
+            <div class="score-display__label">Best Streak</div>
+          </div>
         </div>
-        <div class="results-stats" id="results-stats"></div>
-        <button id="play-again-btn" class="btn btn--primary btn--large mt-lg">Play Again</button>
-        <button id="back-to-setup-btn" class="btn btn--secondary btn--large mt-md">Change Settings</button>
-      </div>
 
-      <div class="mt-xl">
-        <h3 class="text-center mb-md">Leaderboard</h3>
-        <table class="leaderboard" id="leaderboard-table">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Player</th>
-              <th>Score</th>
-              <th>Difficulty</th>
-              <th>Streak</th>
-            </tr>
-          </thead>
-          <tbody id="leaderboard-body"></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
+        <div class="mb-lg">
+          <h3 class="leaderboard__title">
+            <span aria-hidden="true">&#127942;</span> Leaderboard
+          </h3>
+          <div id="results-leaderboard" class="leaderboard"></div>
+        </div>
 
-  <script type="module" src="interval-game.js"></script>
+        <div class="text-center">
+          <button id="btn-play-again" class="btn btn--primary btn--large">
+            Play Again
+          </button>
+          <a href="../index.html" class="btn btn--secondary btn--large" style="margin-left: var(--space-md);">
+            Home
+          </a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script type="module" src="intervals.js"></script>
 </body>
 </html>

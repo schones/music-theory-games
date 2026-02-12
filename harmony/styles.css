@@ -1,390 +1,181 @@
 /* ============================================================
    Interval Training Game — Styles
+   harmony/styles.css
    ============================================================ */
 
-/* --- Game Header --- */
-.game-header {
-  display: flex;
-  align-items: center;
-  gap: var(--space-md);
-  padding: var(--space-lg) 0;
+.harmony-screen {
+  padding: var(--space-xl) 0 var(--space-3xl);
+  animation: fade-in 0.3s ease-out;
 }
 
-.game-header h1 {
-  font-size: var(--font-size-2xl);
-  flex: 1;
-}
-
-.back-link {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-xs);
-  font-weight: var(--font-weight-medium);
-  color: var(--color-text-muted);
-  padding: var(--space-sm) var(--space-md);
-  border-radius: var(--radius-md);
-  transition: background var(--transition-fast), color var(--transition-fast);
-}
-
-.back-link:hover {
-  background: var(--color-border);
-  color: var(--color-text);
-  text-decoration: none;
-}
-
-/* --- Setup Card --- */
-.setup-card {
-  max-width: 500px;
-  margin-inline: auto;
-}
-
-.mic-toggle {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  cursor: pointer;
-  font-weight: var(--font-weight-normal);
-}
-
-.mic-toggle input[type="checkbox"] {
-  width: 20px;
-  height: 20px;
-  accent-color: var(--color-primary);
-}
-
-/* --- Tuner Gauge --- */
-.tuner-section {
-  max-width: 300px;
-  margin: 0 auto var(--space-xl);
-}
-
-.tuner-gauge {
-  position: relative;
-  width: 240px;
-  height: 130px;
+/* --- Setup Screen --- */
+.harmony-setup {
+  max-width: 600px;
   margin: 0 auto;
-  overflow: hidden;
 }
 
-.tuner-gauge__arc {
-  position: absolute;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 220px;
-  height: 110px;
-  border-radius: 110px 110px 0 0;
-  background: conic-gradient(
-    from 0.75turn,
-    var(--color-incorrect) 0deg,
-    var(--color-secondary) 40deg,
-    var(--color-correct) 70deg,
-    var(--color-correct) 110deg,
-    var(--color-secondary) 140deg,
-    var(--color-incorrect) 180deg
-  );
-  opacity: 0.25;
+.harmony-setup__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-md);
 }
 
-.tuner-gauge__needle {
-  position: absolute;
-  bottom: 0;
-  left: 50%;
-  width: 4px;
-  height: 100px;
-  margin-left: -2px;
-  background: var(--color-text);
-  border-radius: 2px;
-  transform-origin: bottom center;
-  transform: rotate(0deg);
-  transition: transform 80ms ease-out, background var(--transition-fast);
-  z-index: 2;
+.harmony-setup__grid .form-group:first-child {
+  grid-column: 1 / -1;
 }
 
-.tuner-gauge__needle--in-tune {
-  background: var(--color-correct);
+@media (max-width: 480px) {
+  .harmony-setup__grid {
+    grid-template-columns: 1fr;
+  }
 }
 
-.tuner-gauge__needle--close {
-  background: var(--color-secondary);
+/* --- Score Bar --- */
+.harmony-scorebar {
+  background: var(--color-bg-card);
+  border-radius: var(--radius-lg);
+  padding: var(--space-md) var(--space-xl);
+  box-shadow: var(--shadow-sm);
+  margin-bottom: var(--space-xl);
 }
 
-.tuner-gauge__needle--off {
-  background: var(--color-incorrect);
-}
-
-.tuner-gauge__center-dot {
-  position: absolute;
-  bottom: -6px;
-  left: 50%;
-  width: 14px;
-  height: 14px;
-  margin-left: -7px;
-  background: var(--color-text);
-  border-radius: 50%;
-  z-index: 3;
-}
-
-.tuner-gauge__labels {
-  position: absolute;
-  bottom: 4px;
-  left: 0;
-  right: 0;
-  display: flex;
-  justify-content: space-between;
-  padding: 0 10px;
-}
-
-.tuner-gauge__label {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
-  font-weight: var(--font-weight-medium);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.tuner-info {
-  display: flex;
-  justify-content: center;
-  gap: var(--space-lg);
-  margin-top: var(--space-md);
+/* --- Gauge Area --- */
+.harmony-gauge-area {
   text-align: center;
+  margin-bottom: var(--space-xl);
+  padding: var(--space-md);
+  background: var(--color-bg-card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
 }
 
-.tuner-info__note {
+/* --- Playback Area --- */
+.harmony-playback {
+  text-align: center;
+  margin-bottom: var(--space-xl);
+  position: relative;
+}
+
+.harmony-feedback {
+  margin-top: var(--space-md);
   font-size: var(--font-size-xl);
   font-weight: var(--font-weight-bold);
+  min-height: 2em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.harmony-feedback--correct {
+  color: var(--color-success);
+}
+
+.harmony-feedback--wrong {
+  color: var(--color-error);
+}
+
+/* --- Score Flyaway --- */
+.harmony-score-fly {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-extra-bold);
   color: var(--color-primary);
+  pointer-events: none;
+  opacity: 0;
+  z-index: 200;
 }
 
-.tuner-info__freq,
-.tuner-info__cents {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
-  align-self: center;
-}
-
-/* --- Interval Button Grid --- */
-.interval-grid {
+/* --- Answer Grid --- */
+.harmony-answers {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   gap: var(--space-sm);
   margin-bottom: var(--space-xl);
 }
 
-.interval-btn {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  min-height: 64px;
-  padding: var(--space-md);
-  border: 3px solid transparent;
-  border-radius: var(--radius-lg);
-  font-family: var(--font-family);
-  cursor: pointer;
-  transition: transform var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast), background var(--transition-fast);
+.harmony-answer-btn {
+  position: relative;
+  font-size: var(--font-size-base);
+  padding: var(--space-md) var(--space-md);
+  text-align: center;
+  transition: all var(--transition-fast);
 }
 
-.interval-btn:hover:not([disabled]) {
+.harmony-answer-btn:not(:disabled):hover {
   transform: translateY(-2px);
   box-shadow: var(--shadow-md);
 }
 
-.interval-btn:active:not([disabled]) {
-  transform: scale(0.96);
+.harmony-answer-btn--correct {
+  background: var(--color-success) !important;
+  color: var(--color-text-inverse) !important;
+  border-color: var(--color-success) !important;
+  box-shadow: var(--shadow-glow-success);
 }
 
-.interval-btn__short {
-  font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-extra-bold);
-  line-height: 1;
+.harmony-answer-btn--wrong {
+  background: var(--color-error) !important;
+  color: var(--color-text-inverse) !important;
+  border-color: var(--color-error) !important;
+  box-shadow: var(--shadow-glow-error);
 }
 
-.interval-btn__name {
-  font-size: var(--font-size-xs);
-  opacity: 0.8;
-}
-
-/* Interval quality colors */
-.interval-btn--perfect {
-  background: #ede9fe;
-  color: #5b21b6;
-  border-color: #c4b5fd;
-}
-.interval-btn--perfect:hover:not([disabled]) {
-  background: #ddd6fe;
-}
-
-.interval-btn--major {
-  background: #dbeafe;
-  color: #1e40af;
-  border-color: #93c5fd;
-}
-.interval-btn--major:hover:not([disabled]) {
-  background: #bfdbfe;
-}
-
-.interval-btn--minor {
-  background: #fce7f3;
-  color: #9d174d;
-  border-color: #f9a8d4;
-}
-.interval-btn--minor:hover:not([disabled]) {
-  background: #fbcfe8;
-}
-
-.interval-btn--tritone {
-  background: #fef3c7;
-  color: #92400e;
-  border-color: #fcd34d;
-}
-.interval-btn--tritone:hover:not([disabled]) {
-  background: #fde68a;
-}
-
-/* Correct / Incorrect highlights */
-.interval-btn--correct {
-  background: var(--color-correct) !important;
-  color: white !important;
-  border-color: var(--color-correct) !important;
-  animation: pop 300ms ease;
-}
-
-.interval-btn--incorrect {
-  background: var(--color-incorrect) !important;
-  color: white !important;
-  border-color: var(--color-incorrect) !important;
-  animation: shake 400ms ease;
-}
-
-.interval-btn[disabled] {
-  opacity: 0.6;
-  cursor: default;
-  transform: none !important;
-}
-
-/* --- Feedback Overlay --- */
-.feedback {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  display: flex;
+.harmony-answer-hint {
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  z-index: 100;
-  pointer-events: none;
-  animation: fade-in 200ms ease;
-}
-
-.feedback--correct {
-  background: rgba(34, 197, 94, 0.12);
-}
-
-.feedback--incorrect {
-  background: rgba(239, 68, 68, 0.12);
-}
-
-.feedback__content {
-  text-align: center;
-  padding: var(--space-xl);
-  border-radius: var(--radius-xl);
-  background: var(--color-surface);
-  box-shadow: var(--shadow-xl);
-  animation: slide-up 300ms ease;
-}
-
-.feedback--correct .feedback__content {
-  border: 3px solid var(--color-correct);
-}
-
-.feedback--incorrect .feedback__content {
-  border: 3px solid var(--color-incorrect);
-}
-
-.feedback__icon {
-  font-size: 3rem;
-  line-height: 1;
-  margin-bottom: var(--space-sm);
-}
-
-.feedback--correct .feedback__icon {
-  color: var(--color-correct);
-}
-
-.feedback--incorrect .feedback__icon {
-  color: var(--color-incorrect);
-}
-
-.feedback__text {
-  font-size: var(--font-size-xl);
-  font-weight: var(--font-weight-bold);
-}
-
-.feedback__detail {
-  color: var(--color-text-muted);
-  margin-top: var(--space-xs);
-}
-
-.feedback__points {
-  font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-bold);
-  color: var(--color-accent);
-  margin-top: var(--space-sm);
-}
-
-/* --- Results --- */
-.results-card {
-  max-width: 500px;
-  margin-inline: auto;
-}
-
-.results-score {
-  margin: var(--space-lg) 0;
-}
-
-.results-score__value {
-  display: block;
-  font-size: 4rem;
-  font-weight: var(--font-weight-extra-bold);
+  width: 1.4em;
+  height: 1.4em;
+  border-radius: var(--radius-sm);
+  background: rgba(108, 92, 231, 0.1);
   color: var(--color-primary);
-  line-height: 1;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  margin-right: var(--space-sm);
+  flex-shrink: 0;
 }
 
-.results-score__label {
-  font-size: var(--font-size-lg);
-  color: var(--color-text-muted);
+.harmony-answer-btn--correct .harmony-answer-hint,
+.harmony-answer-btn--wrong .harmony-answer-hint {
+  background: rgba(255, 255, 255, 0.25);
+  color: var(--color-text-inverse);
 }
 
-/* --- Responsive --- */
-@media (max-width: 640px) {
-  .game-header h1 {
-    font-size: var(--font-size-xl);
+/* --- Bottom Controls --- */
+.harmony-controls {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-md);
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* --- Results Screen --- */
+.harmony-results {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+/* --- Game Layout (center on wide screens) --- */
+.harmony-game {
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+@media (max-width: 480px) {
+  .harmony-answers {
+    grid-template-columns: 1fr 1fr;
   }
 
-  .interval-grid {
-    grid-template-columns: repeat(2, 1fr);
+  .harmony-answer-btn {
+    font-size: var(--font-size-sm);
+    padding: var(--space-sm);
   }
 
-  .tuner-gauge {
-    width: 200px;
-    height: 110px;
-  }
-
-  .tuner-gauge__arc {
-    width: 180px;
-    height: 90px;
-    border-radius: 90px 90px 0 0;
-  }
-
-  .tuner-gauge__needle {
-    height: 80px;
-  }
-
-  .tuner-info {
-    flex-direction: column;
-    gap: var(--space-xs);
+  .harmony-answer-hint {
+    display: none;
   }
 }

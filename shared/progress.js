@@ -1,185 +1,220 @@
 /**
- * progress.js — Leaderboard & score tracking via localStorage
+ * Music Theory Games — Progress & Leaderboard Module
+ * shared/progress.js
  *
- * Storage key pattern: mtg_leaderboard_<game>
- * Each key stores a JSON array of score entries.
+ * All persistence via localStorage. Exports pure functions for
+ * score tracking, leaderboard management, and user preferences.
  */
 
-const STORAGE_PREFIX = 'mtg_leaderboard_';
-const STREAK_PREFIX = 'mtg_streak_';
+const STORAGE_PREFIX = "mtt_";
+const LEADERBOARD_KEY = (game) => `${STORAGE_PREFIX}leaderboard_${game}`;
+const PREFS_KEY = `${STORAGE_PREFIX}prefs`;
+const MAX_LEADERBOARD_SIZE = 100;
 
-/**
- * Generate a simple unique ID.
- */
-function generateId() {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-}
+/* ---------------------------------------------------------- */
+/*  Internal helpers                                          */
+/* ---------------------------------------------------------- */
 
-/**
- * Read the leaderboard array for a game from localStorage.
- * @param {string} game
- * @returns {Array}
- */
-function readStore(game) {
+function readJSON(key, fallback) {
   try {
-    const raw = localStorage.getItem(STORAGE_PREFIX + game);
-    return raw ? JSON.parse(raw) : [];
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
   } catch {
-    return [];
+    return fallback;
   }
 }
 
-/**
- * Write the leaderboard array for a game to localStorage.
- * @param {string} game
- * @param {Array} entries
- */
-function writeStore(game, entries) {
-  localStorage.setItem(STORAGE_PREFIX + game, JSON.stringify(entries));
+function writeJSON(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+    return true;
+  } catch {
+    console.warn(`[progress] Failed to write to localStorage key "${key}"`);
+    return false;
+  }
 }
 
+/* ---------------------------------------------------------- */
+/*  Score / Leaderboard                                       */
+/* ---------------------------------------------------------- */
+
 /**
- * Save a score entry.
+ * Save a score entry for a game.
  *
- * @param {string} game        — game identifier (e.g. "interval-training")
- * @param {string} playerName  — display name
- * @param {number} score       — numeric score
- * @param {object} [metadata]  — extra data (difficulty, mode, streak, etc.)
- * @returns {object} the saved entry
+ * @param {string} game       - Game identifier (e.g. "harmony-intervals")
+ * @param {string} playerName - Display name
+ * @param {number} score      - Numeric score
+ * @param {object} [metadata] - Optional extra data (difficulty, streak, etc.)
+ * @returns {object}          - The saved entry
  */
 export function saveScore(game, playerName, score, metadata = {}) {
   const entry = {
-    id: generateId(),
-    game,
-    playerName,
+    playerName: playerName.trim().slice(0, 30),
     score,
-    difficulty: metadata.difficulty || null,
-    mode: metadata.mode || null,
-    streak: metadata.streak || 0,
-    timestamp: Date.now(),
+    date: new Date().toISOString(),
     metadata,
   };
 
-  const entries = readStore(game);
-  entries.push(entry);
-  writeStore(game, entries);
+  const board = readJSON(LEADERBOARD_KEY(game), []);
+  board.push(entry);
+
+  // Keep only top entries by score (descending), cap at MAX_LEADERBOARD_SIZE
+  board.sort((a, b) => b.score - a.score);
+  if (board.length > MAX_LEADERBOARD_SIZE) {
+    board.length = MAX_LEADERBOARD_SIZE;
+  }
+
+  writeJSON(LEADERBOARD_KEY(game), board);
   return entry;
 }
 
 /**
- * Get sorted leaderboard (highest score first) for a game.
+ * Get the leaderboard for a game.
  *
- * @param {string} game
- * @param {number} [limit=10]
- * @returns {Array}
+ * @param {string} game     - Game identifier
+ * @param {number} [limit]  - Max entries to return (default 10)
+ * @returns {Array<object>} - Sorted score entries (highest first)
  */
 export function getLeaderboard(game, limit = 10) {
-  const entries = readStore(game);
-  entries.sort((a, b) => b.score - a.score);
-  return entries.slice(0, limit);
+  const board = readJSON(LEADERBOARD_KEY(game), []);
+  return board.slice(0, limit);
 }
 
 /**
- * Clear the leaderboard for a game.
+ * Clear all leaderboard data for a game.
  *
- * @param {string} game
+ * @param {string} game - Game identifier
  */
 export function clearLeaderboard(game) {
-  localStorage.removeItem(STORAGE_PREFIX + game);
+  try {
+    localStorage.removeItem(LEADERBOARD_KEY(game));
+  } catch {
+    // Ignore
+  }
 }
 
 /**
- * Aggregate stats for a player across all games.
+ * Get aggregate statistics for a game, optionally filtered by player.
  *
- * Scans all mtg_leaderboard_* keys in localStorage.
- *
- * @param {string} playerName
- * @returns {{ totalGames: number, totalScore: number, bestScore: number, bestStreak: number, games: object }}
+ * @param {string} game         - Game identifier
+ * @param {string} [playerName] - Optional player filter
+ * @returns {object}            - { totalGames, averageScore, bestScore, bestStreak }
  */
-export function getPlayerStats(playerName) {
-  const stats = {
-    totalGames: 0,
-    totalScore: 0,
-    bestScore: 0,
-    bestStreak: 0,
-    games: {},
-  };
+export function getStats(game, playerName) {
+  let board = readJSON(LEADERBOARD_KEY(game), []);
 
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
-    if (!key.startsWith(STORAGE_PREFIX)) continue;
-
-    const game = key.slice(STORAGE_PREFIX.length);
-    let entries;
-    try {
-      entries = JSON.parse(localStorage.getItem(key));
-    } catch {
-      continue;
-    }
-
-    const playerEntries = entries.filter(
-      (e) => e.playerName === playerName
-    );
-
-    if (playerEntries.length === 0) continue;
-
-    stats.games[game] = {
-      played: playerEntries.length,
-      bestScore: Math.max(...playerEntries.map((e) => e.score)),
-    };
-
-    stats.totalGames += playerEntries.length;
-    stats.totalScore += playerEntries.reduce((sum, e) => sum + e.score, 0);
-    stats.bestScore = Math.max(stats.bestScore, stats.games[game].bestScore);
-    stats.bestStreak = Math.max(
-      stats.bestStreak,
-      ...playerEntries.map((e) => e.streak || 0)
+  if (playerName) {
+    const normalized = playerName.trim().toLowerCase();
+    board = board.filter(
+      (e) => e.playerName.toLowerCase() === normalized
     );
   }
 
-  return stats;
+  if (board.length === 0) {
+    return { totalGames: 0, averageScore: 0, bestScore: 0, bestStreak: 0 };
+  }
+
+  const totalGames = board.length;
+  const totalScore = board.reduce((sum, e) => sum + e.score, 0);
+  const averageScore = Math.round(totalScore / totalGames);
+  const bestScore = board[0].score;
+  const bestStreak = Math.max(
+    0,
+    ...board.map((e) => e.metadata?.bestStreak ?? 0)
+  );
+
+  return { totalGames, averageScore, bestScore, bestStreak };
+}
+
+/* ---------------------------------------------------------- */
+/*  Preferences                                               */
+/* ---------------------------------------------------------- */
+
+/**
+ * Save a user preference.
+ *
+ * @param {string} key   - Preference key
+ * @param {*}      value - Any JSON-serializable value
+ */
+export function savePreference(key, value) {
+  const prefs = readJSON(PREFS_KEY, {});
+  prefs[key] = value;
+  writeJSON(PREFS_KEY, prefs);
 }
 
 /**
- * Track consecutive-correct-answer streak for a player.
+ * Get a user preference.
  *
- * @param {string} playerName
- * @param {boolean} correct — true to increment, false to reset
- * @returns {{ current: number, best: number }}
+ * @param {string} key          - Preference key
+ * @param {*}      defaultValue - Fallback if not set
+ * @returns {*}
  */
-export function updateStreak(playerName, correct) {
-  const key = STREAK_PREFIX + playerName;
-  let data;
-  try {
-    data = JSON.parse(localStorage.getItem(key)) || { current: 0, best: 0 };
-  } catch {
-    data = { current: 0, best: 0 };
+export function getPreference(key, defaultValue = null) {
+  const prefs = readJSON(PREFS_KEY, {});
+  return key in prefs ? prefs[key] : defaultValue;
+}
+
+/* ---------------------------------------------------------- */
+/*  Leaderboard DOM rendering helper                          */
+/* ---------------------------------------------------------- */
+
+/**
+ * Render a leaderboard into a container element.
+ * Uses the CSS classes from shared/styles.css.
+ *
+ * @param {HTMLElement} container - Target element
+ * @param {string}      game     - Game identifier
+ * @param {number}      [limit]  - Max entries (default 10)
+ */
+export function renderLeaderboard(container, game, limit = 10) {
+  const entries = getLeaderboard(game, limit);
+  container.innerHTML = "";
+
+  if (entries.length === 0) {
+    container.innerHTML =
+      '<p class="leaderboard__empty">No scores yet. Be the first!</p>';
+    return;
   }
 
-  if (correct) {
-    data.current += 1;
-    if (data.current > data.best) {
-      data.best = data.current;
-    }
-  } else {
-    data.current = 0;
-  }
+  const list = document.createElement("div");
+  list.className = "leaderboard__list";
 
-  localStorage.setItem(key, JSON.stringify(data));
-  return { current: data.current, best: data.best };
+  entries.forEach((entry, i) => {
+    const row = document.createElement("div");
+    row.className = "leaderboard__row";
+
+    const rank = document.createElement("span");
+    rank.className = "leaderboard__rank";
+    rank.textContent = i + 1;
+
+    const name = document.createElement("span");
+    name.className = "leaderboard__name";
+    name.textContent = entry.playerName;
+
+    const score = document.createElement("span");
+    score.className = "leaderboard__score";
+    score.textContent = entry.score;
+
+    const date = document.createElement("span");
+    date.className = "leaderboard__date";
+    date.textContent = formatDate(entry.date);
+
+    row.append(rank, name, score, date);
+    list.appendChild(row);
+  });
+
+  container.appendChild(list);
 }
 
 /**
- * Get current streak info without modifying it.
- *
- * @param {string} playerName
- * @returns {{ current: number, best: number }}
+ * Format an ISO date string to a short display format.
  */
-export function getStreak(playerName) {
-  const key = STREAK_PREFIX + playerName;
+function formatDate(isoString) {
   try {
-    return JSON.parse(localStorage.getItem(key)) || { current: 0, best: 0 };
+    const d = new Date(isoString);
+    const month = d.toLocaleString("default", { month: "short" });
+    return `${month} ${d.getDate()}`;
   } catch {
-    return { current: 0, best: 0 };
+    return "";
   }
 }

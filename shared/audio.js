@@ -1,395 +1,382 @@
 /**
- * audio.js — Web Audio API utilities, pitch detection, tone generation,
- *            and music theory helpers.
+ * Music Theory Games — Audio Utilities
+ * shared/audio.js
  *
- * Tone.js is loaded globally via <script> tag (not imported here).
- * This module wraps it and provides pitch detection via autocorrelation.
+ * Wraps Tone.js (loaded via CDN) for synthesis and the raw Web Audio API
+ * for pitch detection via autocorrelation.
  */
 
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------- */
+/*  Constants                                                 */
+/* ---------------------------------------------------------- */
 
-export const NOTE_NAMES = [
-  'C', 'C#', 'D', 'D#', 'E', 'F',
-  'F#', 'G', 'G#', 'A', 'A#', 'B',
+const NOTE_NAMES = [
+  "C", "C#", "D", "D#", "E", "F",
+  "F#", "G", "G#", "A", "A#", "B",
 ];
 
-export const INTERVALS = {
-  unison: 0,
-  minor2nd: 1,
-  major2nd: 2,
-  minor3rd: 3,
-  major3rd: 4,
-  perfect4th: 5,
-  tritone: 6,
-  perfect5th: 7,
-  minor6th: 8,
-  major6th: 9,
-  minor7th: 10,
-  major7th: 11,
-  perfectOctave: 12,
+// Enharmonic display names for nicer UI
+const NOTE_DISPLAY = {
+  "C": "C", "C#": "C#/Db", "D": "D", "D#": "D#/Eb",
+  "E": "E", "F": "F", "F#": "F#/Gb", "G": "G",
+  "G#": "G#/Ab", "A": "A", "A#": "A#/Bb", "B": "B",
 };
 
-const INTERVAL_LABELS = {
-  0: 'Unison',
-  1: 'Minor 2nd',
-  2: 'Major 2nd',
-  3: 'Minor 3rd',
-  4: 'Major 3rd',
-  5: 'Perfect 4th',
-  6: 'Tritone',
-  7: 'Perfect 5th',
-  8: 'Minor 6th',
-  9: 'Major 6th',
-  10: 'Minor 7th',
-  11: 'Major 7th',
-  12: 'Octave',
-};
+const INTERVAL_NAMES = [
+  "Unison",        // 0
+  "Minor 2nd",     // 1
+  "Major 2nd",     // 2
+  "Minor 3rd",     // 3
+  "Major 3rd",     // 4
+  "Perfect 4th",   // 5
+  "Tritone",       // 6
+  "Perfect 5th",   // 7
+  "Minor 6th",     // 8
+  "Major 6th",     // 9
+  "Minor 7th",     // 10
+  "Major 7th",     // 11
+  "Octave",        // 12
+];
 
-const INTERVAL_SHORT = {
-  0: 'P1',
-  1: 'm2',
-  2: 'M2',
-  3: 'm3',
-  4: 'M3',
-  5: 'P4',
-  6: 'TT',
-  7: 'P5',
-  8: 'm6',
-  9: 'M6',
-  10: 'm7',
-  11: 'M7',
-  12: 'P8',
-};
-
-// A4 = 440 Hz reference
-const A4 = 440;
+const A4_FREQ = 440;
 const A4_MIDI = 69;
 
-// Noise gate — ignore signals below this RMS amplitude
-const NOISE_GATE = 0.01;
-
-// ---------------------------------------------------------------------------
-// Internal state
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------- */
+/*  Module state                                              */
+/* ---------------------------------------------------------- */
 
 let audioContext = null;
 let synth = null;
+let micStream = null;
+let analyserNode = null;
+let detectionRunning = false;
+let detectionFrameId = null;
 
-// ---------------------------------------------------------------------------
-// Initialization
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------- */
+/*  Initialization                                            */
+/* ---------------------------------------------------------- */
 
 /**
- * Create / resume the AudioContext and Tone.js synth.
- * Must be called from a user gesture (click / tap).
+ * Initialize the audio system. Must be called from a user gesture
+ * (click / tap) due to browser autoplay policies.
  *
- * @returns {Promise<AudioContext>}
+ * @returns {AudioContext} The underlying AudioContext
  */
 export async function initAudio() {
-  if (!audioContext) {
-    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioContext && audioContext.state === "running") {
+    return audioContext;
   }
 
-  if (audioContext.state === 'suspended') {
-    await audioContext.resume();
+  // Ensure Tone.js is loaded (it should be via CDN in the HTML)
+  if (typeof Tone === "undefined") {
+    throw new Error("Tone.js is not loaded. Include it via <script> before using audio.js.");
   }
 
-  // Start Tone.js context if available
-  if (window.Tone && window.Tone.context.state !== 'running') {
-    await window.Tone.start();
-  }
+  await Tone.start();
+  audioContext = Tone.getContext().rawContext;
 
-  // Create default synth
-  if (window.Tone && !synth) {
-    synth = new window.Tone.PolySynth(window.Tone.Synth, {
-      oscillator: { type: 'triangle' },
-      envelope: {
-        attack: 0.02,
-        decay: 0.3,
-        sustain: 0.4,
-        release: 0.8,
-      },
-      volume: -8,
-    }).toDestination();
-  }
+  synth = new Tone.PolySynth(Tone.Synth, {
+    oscillator: { type: "triangle" },
+    envelope: {
+      attack: 0.02,
+      decay: 0.3,
+      sustain: 0.4,
+      release: 0.8,
+    },
+    volume: -8,
+  }).toDestination();
 
   return audioContext;
 }
 
-/**
- * Get the shared AudioContext (creates one if needed).
- * @returns {AudioContext}
- */
-export function getAudioContext() {
-  if (!audioContext) {
-    audioContext = new (window.AudioContext || window.webkitAudioContext)();
-  }
-  return audioContext;
-}
-
-// ---------------------------------------------------------------------------
-// Note / frequency conversion
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------- */
+/*  Note / Frequency conversions                              */
+/* ---------------------------------------------------------- */
 
 /**
- * Convert a note name like "C4" or "F#3" to its frequency in Hz.
+ * Convert a frequency in Hz to note info.
  *
- * @param {string} noteName — e.g. "A4", "C#3"
- * @returns {number} frequency in Hz
+ * @param {number} freq - Frequency in Hz
+ * @returns {{ noteName: string, octave: number, cents: number, fullName: string }}
  */
-export function noteToFrequency(noteName) {
-  const match = noteName.match(/^([A-G]#?)(\d+)$/);
-  if (!match) throw new Error(`Invalid note name: ${noteName}`);
+export function frequencyToNote(freq) {
+  if (freq <= 0) return null;
 
-  const [, note, octaveStr] = match;
-  const octave = parseInt(octaveStr, 10);
-  const semitone = NOTE_NAMES.indexOf(note);
-  if (semitone === -1) throw new Error(`Unknown note: ${note}`);
+  const midiFloat = 12 * Math.log2(freq / A4_FREQ) + A4_MIDI;
+  const midi = Math.round(midiFloat);
+  const cents = Math.round((midiFloat - midi) * 100);
+  const noteIndex = ((midi % 12) + 12) % 12;
+  const octave = Math.floor(midi / 12) - 1;
+  const noteName = NOTE_NAMES[noteIndex];
 
-  const midi = semitone + (octave + 1) * 12;
-  return A4 * Math.pow(2, (midi - A4_MIDI) / 12);
+  return {
+    noteName,
+    octave,
+    cents,
+    fullName: `${noteName}${octave}`,
+    displayName: NOTE_DISPLAY[noteName],
+  };
 }
 
 /**
- * Convert a frequency in Hz to the nearest note name + cents offset.
+ * Convert a scientific pitch name (e.g. "C4", "F#3") to Hz.
  *
- * @param {number} frequency — Hz
- * @returns {{ noteName: string, frequency: number, cents: number, midi: number }}
+ * @param {string} name - Scientific pitch notation
+ * @returns {number} Frequency in Hz
  */
-export function frequencyToNote(frequency) {
-  if (frequency <= 0) return null;
+export function noteToFrequency(name) {
+  const match = name.match(/^([A-G]#?)(\d+)$/);
+  if (!match) throw new Error(`Invalid note name: "${name}"`);
 
-  const midi = 12 * Math.log2(frequency / A4) + A4_MIDI;
-  const roundedMidi = Math.round(midi);
-  const cents = Math.round((midi - roundedMidi) * 100);
+  const noteName = match[1];
+  const octave = parseInt(match[2], 10);
+  const noteIndex = NOTE_NAMES.indexOf(noteName);
+  if (noteIndex === -1) throw new Error(`Unknown note: "${noteName}"`);
 
-  const noteIndex = ((roundedMidi % 12) + 12) % 12;
-  const octave = Math.floor(roundedMidi / 12) - 1;
-  const noteName = NOTE_NAMES[noteIndex] + octave;
-
-  return { noteName, frequency, cents, midi: roundedMidi };
+  const midi = (octave + 1) * 12 + noteIndex;
+  return A4_FREQ * Math.pow(2, (midi - A4_MIDI) / 12);
 }
 
 /**
- * Get the human-readable interval name from a semitone distance.
+ * Get the interval name for a given number of semitones.
  *
- * @param {number} semitones — 0–12
- * @returns {string}
+ * @param {number} semitones - 0–12
+ * @returns {string} Interval name
  */
 export function getIntervalName(semitones) {
-  return INTERVAL_LABELS[semitones] || `${semitones} semitones`;
+  const clamped = Math.abs(semitones) % 13;
+  return INTERVAL_NAMES[clamped] ?? `${semitones} semitones`;
 }
 
 /**
- * Get the short label (e.g. "P5", "m3") for a semitone distance.
+ * Get semitone count from an interval name.
  *
- * @param {number} semitones — 0–12
- * @returns {string}
+ * @param {string} name - e.g. "Perfect 5th"
+ * @returns {number} Semitones (0–12), or -1 if not found
  */
-export function getIntervalShort(semitones) {
-  return INTERVAL_SHORT[semitones] || `${semitones}st`;
+export function getSemitones(name) {
+  const idx = INTERVAL_NAMES.findIndex(
+    (n) => n.toLowerCase() === name.toLowerCase()
+  );
+  return idx;
 }
 
 /**
- * Transpose a note name by a number of semitones.
+ * Generate an array of note names from C3 to C5.
  *
- * @param {string} noteName — e.g. "C4"
- * @param {number} semitones — positive = up
- * @returns {string} new note name
+ * @returns {string[]} e.g. ["C3", "C#3", "D3", ... "C5"]
  */
-export function transposeNote(noteName, semitones) {
-  const freq = noteToFrequency(noteName);
-  const newFreq = freq * Math.pow(2, semitones / 12);
-  const result = frequencyToNote(newFreq);
-  return result.noteName;
-}
-
-/**
- * Build a list of root note options from C3 to C5.
- *
- * @returns {string[]} e.g. ["C3", "C#3", "D3", ..., "C5"]
- */
-export function getRootNoteOptions() {
+export function getNoteRange(startOctave = 3, endNote = "C5") {
   const notes = [];
-  for (let octave = 3; octave <= 5; octave++) {
-    for (const note of NOTE_NAMES) {
-      notes.push(note + octave);
-      if (note === 'C' && octave === 5) break; // stop at C5
+  for (let octave = startOctave; octave <= 5; octave++) {
+    for (const name of NOTE_NAMES) {
+      const full = `${name}${octave}`;
+      notes.push(full);
+      if (full === endNote) return notes;
     }
   }
   return notes;
 }
 
-// ---------------------------------------------------------------------------
-// Tone generation (Tone.js wrappers)
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------- */
+/*  Playback                                                  */
+/* ---------------------------------------------------------- */
 
 /**
  * Play a single note.
  *
- * @param {string} noteName — e.g. "C4"
- * @param {string|number} [duration="4n"] — Tone.js duration
- * @param {number} [velocity=0.8] — 0–1
+ * @param {string} noteName   - Scientific pitch (e.g. "C4")
+ * @param {number} [duration] - Duration in seconds (default 0.8)
  */
-export function playNote(noteName, duration = '4n', velocity = 0.8) {
+export function playNote(noteName, duration = 0.8) {
   if (!synth) {
-    console.warn('Audio not initialized. Call initAudio() first.');
+    console.warn("[audio] Call initAudio() first.");
     return;
   }
-  synth.triggerAttackRelease(noteName, duration, undefined, velocity);
+  synth.triggerAttackRelease(noteName, duration);
 }
 
 /**
- * Play an interval — two notes either simultaneously or arpeggiated.
+ * Play an interval: two notes from a root.
  *
- * @param {string} root — root note name, e.g. "C4"
- * @param {number} intervalSemitones — semitone distance
- * @param {boolean} [arpeggiate=true] — play sequentially if true
- * @param {string|number} [duration="4n"]
+ * @param {string} rootNote          - Root note (e.g. "C4")
+ * @param {number} intervalSemitones - Semitones above root
+ * @param {"harmonic"|"melodic-up"|"melodic-down"} mode - Playback mode
+ * @param {number} [noteDuration]    - Per-note duration in seconds
  */
-export function playInterval(root, intervalSemitones, arpeggiate = true, duration = '4n') {
+export function playInterval(rootNote, intervalSemitones, mode = "melodic-up", noteDuration = 0.8) {
   if (!synth) {
-    console.warn('Audio not initialized. Call initAudio() first.');
+    console.warn("[audio] Call initAudio() first.");
     return;
   }
 
-  const target = transposeNote(root, intervalSemitones);
-  const now = window.Tone.now();
+  const rootFreq = noteToFrequency(rootNote);
+  const secondFreq = rootFreq * Math.pow(2, intervalSemitones / 12);
+  const secondNote = frequencyToNote(secondFreq);
+  const secondName = secondNote.fullName;
 
-  if (arpeggiate) {
-    const durationSeconds = window.Tone.Time(duration).toSeconds();
-    synth.triggerAttackRelease(root, duration, now, 0.8);
-    synth.triggerAttackRelease(target, duration, now + durationSeconds + 0.1, 0.8);
-  } else {
-    synth.triggerAttackRelease([root, target], duration, now, 0.8);
+  const now = Tone.now();
+
+  switch (mode) {
+    case "harmonic":
+      synth.triggerAttackRelease(rootNote, noteDuration, now);
+      synth.triggerAttackRelease(secondName, noteDuration, now);
+      break;
+
+    case "melodic-down":
+      synth.triggerAttackRelease(secondName, noteDuration, now);
+      synth.triggerAttackRelease(rootNote, noteDuration, now + noteDuration + 0.15);
+      break;
+
+    case "melodic-up":
+    default:
+      synth.triggerAttackRelease(rootNote, noteDuration, now);
+      synth.triggerAttackRelease(secondName, noteDuration, now + noteDuration + 0.15);
+      break;
   }
 }
 
-/**
- * Play a short "correct" chime.
- */
-export function playCorrectSound() {
-  if (!synth) return;
-  const now = window.Tone.now();
-  synth.triggerAttackRelease('E5', '16n', now, 0.5);
-  synth.triggerAttackRelease('G5', '16n', now + 0.1, 0.5);
-  synth.triggerAttackRelease('C6', '8n', now + 0.2, 0.6);
-}
+/* ---------------------------------------------------------- */
+/*  Pitch Detection (autocorrelation)                         */
+/* ---------------------------------------------------------- */
 
 /**
- * Play a short "incorrect" buzz.
- */
-export function playIncorrectSound() {
-  if (!synth) return;
-  const now = window.Tone.now();
-  synth.triggerAttackRelease('E3', '8n', now, 0.4);
-  synth.triggerAttackRelease('D#3', '8n', now + 0.15, 0.4);
-}
-
-// ---------------------------------------------------------------------------
-// Pitch detection (autocorrelation)
-// ---------------------------------------------------------------------------
-
-/**
- * Request microphone access and return an AnalyserNode connected to it.
+ * Start pitch detection using the microphone.
+ * Calls `callback(frequency, noteInfo)` on each analysis frame.
+ * `noteInfo` is the result of `frequencyToNote()`, or null if no pitch detected.
  *
- * @returns {Promise<{ analyser: AnalyserNode, stream: MediaStream }>}
+ * @param {function} callback - Called with (frequency, noteInfo) per frame
+ * @returns {Promise<void>}
  */
-export async function setupMicrophone() {
-  const ctx = getAudioContext();
-  if (ctx.state === 'suspended') await ctx.resume();
+export async function startPitchDetection(callback) {
+  if (detectionRunning) return;
 
-  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  const source = ctx.createMediaStreamSource(stream);
-  const analyser = ctx.createAnalyser();
-  analyser.fftSize = 4096;
-  analyser.smoothingTimeConstant = 0.8;
-  source.connect(analyser);
+  const ctx = audioContext || new (window.AudioContext || window.webkitAudioContext)();
+  if (!audioContext) audioContext = ctx;
 
-  return { analyser, stream };
+  try {
+    micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (err) {
+    throw new Error(
+      "Microphone access denied. Please allow mic access to use pitch detection."
+    );
+  }
+
+  const source = ctx.createMediaStreamSource(micStream);
+  analyserNode = ctx.createAnalyser();
+  analyserNode.fftSize = 4096;
+  source.connect(analyserNode);
+
+  const buffer = new Float32Array(analyserNode.fftSize);
+  detectionRunning = true;
+
+  function detect() {
+    if (!detectionRunning) return;
+
+    analyserNode.getFloatTimeDomainData(buffer);
+    const freq = autocorrelate(buffer, ctx.sampleRate);
+
+    if (freq > 0) {
+      const noteInfo = frequencyToNote(freq);
+      callback(freq, noteInfo);
+    } else {
+      callback(0, null);
+    }
+
+    detectionFrameId = requestAnimationFrame(detect);
+  }
+
+  detect();
 }
 
 /**
- * Detect the fundamental frequency using autocorrelation.
- *
- * @param {AnalyserNode} analyser
- * @returns {{ frequency: number, noteName: string, cents: number } | null}
- *          null if signal is below noise gate
+ * Stop pitch detection and release the microphone.
  */
-export function detectPitch(analyser) {
-  const bufferLength = analyser.fftSize;
-  const buffer = new Float32Array(bufferLength);
-  analyser.getFloatTimeDomainData(buffer);
+export function stopPitchDetection() {
+  detectionRunning = false;
 
-  // Noise gate — compute RMS
+  if (detectionFrameId) {
+    cancelAnimationFrame(detectionFrameId);
+    detectionFrameId = null;
+  }
+
+  if (micStream) {
+    micStream.getTracks().forEach((t) => t.stop());
+    micStream = null;
+  }
+
+  analyserNode = null;
+}
+
+/**
+ * Autocorrelation pitch detection.
+ * Returns the detected fundamental frequency in Hz, or -1 if no clear pitch.
+ *
+ * @param {Float32Array} buffer     - Time-domain audio samples
+ * @param {number}       sampleRate - Audio context sample rate
+ * @returns {number} Frequency in Hz, or -1
+ */
+function autocorrelate(buffer, sampleRate) {
+  const n = buffer.length;
+
+  // Check if signal is loud enough (RMS)
   let rms = 0;
-  for (let i = 0; i < bufferLength; i++) {
+  for (let i = 0; i < n; i++) {
     rms += buffer[i] * buffer[i];
   }
-  rms = Math.sqrt(rms / bufferLength);
+  rms = Math.sqrt(rms / n);
+  if (rms < 0.01) return -1; // Too quiet
 
-  if (rms < NOISE_GATE) return null;
+  // Trim silence from edges
+  let start = 0;
+  let end = n - 1;
+  const threshold = 0.2;
+  while (start < n && Math.abs(buffer[start]) < threshold) start++;
+  while (end > 0 && Math.abs(buffer[end]) < threshold) end--;
+
+  if (end <= start) return -1;
+
+  const trimmed = buffer.slice(start, end + 1);
+  const len = trimmed.length;
 
   // Autocorrelation
-  const sampleRate = analyser.context.sampleRate;
-  const correlations = new Float32Array(bufferLength);
-
-  for (let lag = 0; lag < bufferLength; lag++) {
+  const corr = new Float32Array(len);
+  for (let lag = 0; lag < len; lag++) {
     let sum = 0;
-    for (let i = 0; i < bufferLength - lag; i++) {
-      sum += buffer[i] * buffer[i + lag];
+    for (let i = 0; i < len - lag; i++) {
+      sum += trimmed[i] * trimmed[i + lag];
     }
-    correlations[lag] = sum;
+    corr[lag] = sum;
   }
 
-  // Find the first peak after the initial drop
-  // Skip lag 0 (which is the maximum by definition)
-  // Find where autocorrelation first dips below a threshold, then find the next peak
-  let foundDip = false;
-  let bestLag = -1;
-  let bestCorr = 0;
+  // Find first dip then first peak after it
+  let d = 0;
+  while (d < len && corr[d] > 0) d++;
+  if (d >= len) return -1;
 
-  // Minimum lag corresponds to ~2000 Hz (well above guitar/voice range)
-  const minLag = Math.floor(sampleRate / 2000);
-  // Maximum lag corresponds to ~50 Hz (well below most musical notes)
-  const maxLag = Math.floor(sampleRate / 50);
-
-  for (let lag = minLag; lag < maxLag && lag < bufferLength; lag++) {
-    if (!foundDip && correlations[lag] < correlations[0] * 0.5) {
-      foundDip = true;
-    }
-    if (foundDip && correlations[lag] > bestCorr) {
-      bestCorr = correlations[lag];
-      bestLag = lag;
-    }
-    // Once we find a clear peak and start declining, stop
-    if (foundDip && bestLag > 0 && correlations[lag] < bestCorr * 0.9) {
-      break;
+  let maxVal = -1;
+  let maxPos = -1;
+  for (let i = d; i < len; i++) {
+    if (corr[i] > maxVal) {
+      maxVal = corr[i];
+      maxPos = i;
     }
   }
 
-  if (bestLag === -1) return null;
+  if (maxPos === -1) return -1;
 
   // Parabolic interpolation for sub-sample accuracy
-  const prev = correlations[bestLag - 1] || 0;
-  const curr = correlations[bestLag];
-  const next = correlations[bestLag + 1] || 0;
-  const shift = (prev - next) / (2 * (prev - 2 * curr + next)) || 0;
-  const refinedLag = bestLag + shift;
+  const y1 = maxPos > 0 ? corr[maxPos - 1] : corr[maxPos];
+  const y2 = corr[maxPos];
+  const y3 = maxPos < len - 1 ? corr[maxPos + 1] : corr[maxPos];
+  const shift = (y3 - y1) / (2 * (2 * y2 - y1 - y3));
+  const refinedPos = maxPos + (isFinite(shift) ? shift : 0);
 
-  const frequency = sampleRate / refinedLag;
-
-  // Sanity check — musical range roughly 50–2000 Hz
-  if (frequency < 50 || frequency > 2000) return null;
-
-  const note = frequencyToNote(frequency);
-  if (!note) return null;
-
-  return {
-    frequency: Math.round(frequency * 10) / 10,
-    noteName: note.noteName,
-    cents: note.cents,
-  };
+  return sampleRate / refinedPos;
 }
+
+/* ---------------------------------------------------------- */
+/*  Exports for convenience                                   */
+/* ---------------------------------------------------------- */
+
+export { NOTE_NAMES, NOTE_DISPLAY, INTERVAL_NAMES };

@@ -5,98 +5,123 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Music Theory Games</title>
   <link rel="stylesheet" href="shared/styles.css">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
   <style>
-    .hero {
+    .hub-hero {
       text-align: center;
       padding: var(--space-3xl) 0 var(--space-xl);
     }
 
-    .hero__title {
-      font-size: clamp(2rem, 5vw, 3.5rem);
+    .hub-hero__title {
+      font-size: var(--font-size-3xl);
       font-weight: var(--font-weight-extra-bold);
-      background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
+      color: var(--color-primary);
       margin-bottom: var(--space-sm);
     }
 
-    .hero__subtitle {
+    .hub-hero__subtitle {
       font-size: var(--font-size-lg);
-      color: var(--color-text-muted);
+      color: var(--color-text-light);
       max-width: 500px;
-      margin-inline: auto;
+      margin: 0 auto;
     }
 
-    .game-grid {
+    .hub-games {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: var(--space-xl);
       padding-bottom: var(--space-3xl);
     }
 
     .game-card {
-      text-decoration: none;
-      color: inherit;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .game-card__icon {
+      font-size: 3rem;
+      margin-bottom: var(--space-md);
       display: block;
     }
 
-    .game-card:hover {
+    .game-card__tags {
+      display: flex;
+      gap: var(--space-sm);
+      flex-wrap: wrap;
+      margin-top: var(--space-md);
+    }
+
+    .game-card--coming-soon {
+      opacity: 0.6;
+    }
+
+    .game-card--coming-soon .card__title::after {
+      content: " — Coming Soon";
+      font-size: var(--font-size-sm);
+      color: var(--color-text-muted);
+      font-weight: var(--font-weight-normal);
+    }
+
+    .game-card__link {
+      display: block;
+      color: inherit;
       text-decoration: none;
     }
 
-    .game-card--disabled {
-      opacity: 0.7;
-      pointer-events: none;
-    }
-
-    footer {
-      text-align: center;
-      padding: var(--space-xl);
-      color: var(--color-text-muted);
-      font-size: var(--font-size-sm);
+    .game-card__link:hover {
+      text-decoration: none;
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <header class="hero">
-      <h1 class="hero__title">Music Theory Games</h1>
-      <p class="hero__subtitle">Learn music the fun way! Train your ear, master rhythm, and explore harmony.</p>
-    </header>
+  <header class="mtt-header">
+    <div class="mtt-header__logo">
+      <span aria-hidden="true">&#9835;</span> Music Theory Games
+    </div>
+  </header>
 
-    <section class="game-grid grid" aria-label="Available games">
-      <a href="harmony/index.html" class="game-card card card--interactive" aria-label="Play Interval Training">
-        <div class="card__icon" aria-hidden="true">&#127925;</div>
-        <h2 class="card__title">Interval Training</h2>
-        <p class="card__description">
-          Learn to recognize musical intervals by ear. Practice mode to build skills, test mode to challenge yourself!
-        </p>
-        <span class="card__badge">Play Now</span>
-      </a>
-
-      <div class="game-card game-card--disabled card" aria-label="Rhythm game coming soon">
-        <div class="card__icon" aria-hidden="true">&#127928;</div>
-        <h2 class="card__title">Rhythm Training</h2>
-        <p class="card__description">
-          Clap, tap, and feel the beat. Master rhythm patterns from simple to complex.
-        </p>
-        <span class="card__badge card__badge--coming-soon">Coming Soon</span>
-      </div>
-
-      <div class="game-card game-card--disabled card" aria-label="Scales game coming soon">
-        <div class="card__icon" aria-hidden="true">&#127929;</div>
-        <h2 class="card__title">Scale Explorer</h2>
-        <p class="card__description">
-          Discover major, minor, and exotic scales. Play them, hear them, know them!
-        </p>
-        <span class="card__badge card__badge--coming-soon">Coming Soon</span>
-      </div>
+  <main class="container">
+    <section class="hub-hero">
+      <h1 class="hub-hero__title">Learn Music Theory</h1>
+      <p class="hub-hero__subtitle">
+        Train your ear, master rhythm, and explore harmony through interactive games.
+      </p>
     </section>
 
-    <footer>
-      <p>Music Theory Games &mdash; Learn by playing</p>
-    </footer>
-  </div>
+    <section class="hub-games" aria-label="Available games">
+      <article class="card card--interactive game-card">
+        <a href="harmony/index.html" class="game-card__link">
+          <span class="game-card__icon" aria-hidden="true">&#127932;</span>
+          <h2 class="card__title">Interval Training</h2>
+          <p class="card__description">
+            Listen to two notes and identify the interval between them.
+            Practice mode for learning, test mode for high scores.
+          </p>
+          <div class="game-card__tags">
+            <span class="badge badge--primary">Ear Training</span>
+            <span class="badge badge--success">3 Difficulty Levels</span>
+          </div>
+        </a>
+      </article>
+
+      <article class="card card--interactive game-card">
+        <a href="rhythm/index.html" class="game-card__link">
+          <span class="game-card__icon" aria-hidden="true">&#127928;</span>
+          <h2 class="card__title">Rhythm Training</h2>
+          <p class="card__description">
+            Clap along to the beat with an EKG-style visual metronome.
+            Practice your timing or test your rhythm skills.
+          </p>
+          <div class="game-card__tags">
+            <span class="badge badge--primary">Rhythm</span>
+            <span class="badge badge--success">3 Difficulty Levels</span>
+          </div>
+        </a>
+      </article>
+    </section>
+  </main>
+
+  <footer style="text-align: center; padding: var(--space-xl); color: var(--color-text-muted); font-size: var(--font-size-sm);">
+    Music Theory Games &mdash; Learn music by playing
+  </footer>
 </body>
 </html>

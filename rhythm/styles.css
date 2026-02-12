@@ -1,0 +1,249 @@
+/* ============================================================
+   Rhythm Training Game — Styles
+   rhythm/styles.css
+   ============================================================ */
+
+.rhythm-screen {
+  padding: var(--space-xl) 0 var(--space-3xl);
+  animation: fade-in 0.3s ease-out;
+}
+
+/* --- Setup Screen --- */
+.rhythm-setup {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.rhythm-setup__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-md);
+}
+
+.rhythm-setup__grid .form-group:first-child {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 480px) {
+  .rhythm-setup__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* --- Tempo Row --- */
+.rhythm-tempo-row {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+}
+
+.rhythm-tempo-row .form-label {
+  flex-basis: 100%;
+}
+
+.rhythm-bpm-slider {
+  flex: 1;
+  min-width: 120px;
+  height: 6px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: var(--color-border);
+  border-radius: var(--radius-full);
+  outline: none;
+}
+
+.rhythm-bpm-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  cursor: pointer;
+  border: 2px solid var(--color-bg-card);
+  box-shadow: var(--shadow-sm);
+}
+
+.rhythm-bpm-slider::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  cursor: pointer;
+  border: 2px solid var(--color-bg-card);
+  box-shadow: var(--shadow-sm);
+}
+
+.rhythm-bpm-display {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-extra-bold);
+  color: var(--color-primary);
+  min-width: 3em;
+  text-align: center;
+}
+
+.rhythm-bpm-input {
+  width: 70px;
+  text-align: center;
+}
+
+/* --- Tap-in --- */
+.rhythm-tap-row {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+}
+
+.rhythm-tap-feedback {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-light);
+  font-style: italic;
+}
+
+/* --- Time Signature --- */
+.rhythm-time-sig {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.rhythm-time-sig__slash {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-muted);
+}
+
+.rhythm-time-sig select {
+  width: 60px;
+}
+
+/* --- Game Screen --- */
+.rhythm-game {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+/* --- EKG Canvas Area --- */
+.rhythm-ekg-area {
+  background: var(--color-bg-card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  padding: var(--space-md);
+  margin-bottom: var(--space-lg);
+  position: relative;
+  overflow: hidden;
+}
+
+.rhythm-ekg-canvas {
+  display: block;
+  width: 100%;
+  height: 180px;
+  border-radius: var(--radius-md);
+}
+
+/* --- Beat Light --- */
+.rhythm-beat-light-wrap {
+  display: flex;
+  justify-content: center;
+  margin-bottom: var(--space-lg);
+}
+
+.rhythm-beat-light {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--color-border);
+  border: 3px solid var(--color-bg-card);
+  box-shadow: var(--shadow-sm);
+  transition: background-color 0.05s ease, box-shadow 0.05s ease;
+}
+
+.rhythm-beat-light--flash {
+  box-shadow: 0 0 24px 8px currentColor;
+  transform: scale(1.1);
+  transition: transform 0.05s ease;
+}
+
+/* --- Stats Bar --- */
+.rhythm-stats {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-xl);
+  flex-wrap: wrap;
+  background: var(--color-bg-card);
+  border-radius: var(--radius-lg);
+  padding: var(--space-md) var(--space-xl);
+  box-shadow: var(--shadow-sm);
+  margin-bottom: var(--space-lg);
+}
+
+.rhythm-stat {
+  text-align: center;
+}
+
+.rhythm-stat__value {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-extra-bold);
+  color: var(--color-primary);
+  line-height: 1;
+}
+
+.rhythm-stat__label {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-top: var(--space-xs);
+}
+
+/* --- Game Controls --- */
+.rhythm-controls {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-md);
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.rhythm-tap-hint {
+  text-align: center;
+  color: var(--color-text-light);
+  font-size: var(--font-size-sm);
+  margin-bottom: var(--space-md);
+}
+
+/* --- Results Screen --- */
+.rhythm-results {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+/* --- Responsive --- */
+@media (max-width: 480px) {
+  .rhythm-stats {
+    gap: var(--space-md);
+    padding: var(--space-sm) var(--space-md);
+  }
+
+  .rhythm-stat__value {
+    font-size: var(--font-size-xl);
+  }
+
+  .rhythm-beat-light {
+    width: 44px;
+    height: 44px;
+  }
+
+  .rhythm-tempo-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .rhythm-bpm-display {
+    text-align: left;
+  }
+}

@@ -4,45 +4,208 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Rhythm Training — Music Theory Games</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../shared/styles.css">
-  <style>
-    .coming-soon {
-      text-align: center;
-      padding: var(--space-3xl) 0;
-    }
-
-    .coming-soon__icon {
-      font-size: 5rem;
-      margin-bottom: var(--space-lg);
-    }
-
-    .coming-soon h2 {
-      margin-bottom: var(--space-md);
-    }
-
-    .coming-soon p {
-      color: var(--color-text-muted);
-      max-width: 400px;
-      margin-inline: auto;
-      margin-bottom: var(--space-xl);
-    }
-  </style>
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <div class="container">
-    <header style="padding: var(--space-lg) 0;">
-      <a href="../index.html" style="font-weight: 600; color: var(--color-text-muted);">&larr; Back to Hub</a>
-    </header>
+  <header class="mtt-header">
+    <a href="../index.html" class="mtt-header__logo" style="text-decoration:none">
+      <span aria-hidden="true">&#9835;</span> Music Theory Games
+    </a>
+    <nav class="mtt-header__nav">
+      <a href="../index.html" class="mtt-header__link">Home</a>
+      <a href="../harmony/index.html" class="mtt-header__link">Intervals</a>
+      <a href="#" class="mtt-header__link mtt-header__link--active">Rhythm</a>
+    </nav>
+  </header>
 
-    <div class="coming-soon">
-      <div class="coming-soon__icon" aria-hidden="true">&#127928;</div>
-      <h2>Rhythm Training</h2>
-      <p>This game is under construction! Soon you'll be able to clap, tap, and master rhythm patterns.</p>
-      <a href="../index.html" class="btn btn--primary btn--large">Back to Games</a>
-    </div>
-  </div>
+  <main class="container">
+    <!-- ===== Setup Screen ===== -->
+    <section id="screen-setup" class="rhythm-screen">
+      <div class="rhythm-setup">
+        <h1 class="text-center mb-lg">Rhythm Training</h1>
+        <p class="text-center mb-lg" style="color: var(--color-text-light);">
+          Clap along to the beat! Use your microphone or tap the spacebar to stay in rhythm.
+        </p>
+
+        <div class="rhythm-setup__grid">
+          <!-- Player Name -->
+          <div class="form-group">
+            <label class="form-label" for="player-name">Your Name</label>
+            <input type="text" id="player-name" class="form-input"
+                   placeholder="Enter your name" maxlength="30" value="Player">
+          </div>
+
+          <!-- Mode -->
+          <div class="form-group">
+            <label class="form-label" for="game-mode">Mode</label>
+            <select id="game-mode" class="form-select">
+              <option value="practice">Practice (unlimited)</option>
+              <option value="test-8">Test — 8 Measures</option>
+              <option value="test-16">Test — 16 Measures</option>
+            </select>
+          </div>
+
+          <!-- Difficulty -->
+          <div class="form-group">
+            <label class="form-label" for="difficulty">Difficulty</label>
+            <select id="difficulty" class="form-select">
+              <option value="easy">Easy (±100ms)</option>
+              <option value="medium" selected>Medium (±50ms)</option>
+              <option value="hard">Hard (±25ms)</option>
+            </select>
+          </div>
+
+          <!-- Time Signature -->
+          <div class="form-group">
+            <label class="form-label">Time Signature</label>
+            <div class="rhythm-time-sig">
+              <select id="time-sig-num" class="form-select rhythm-time-sig__select" aria-label="Beats per measure">
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4" selected>4</option>
+                <option value="5">5</option>
+                <option value="6">6</option>
+                <option value="7">7</option>
+                <option value="8">8</option>
+                <option value="9">9</option>
+                <option value="12">12</option>
+              </select>
+              <span class="rhythm-time-sig__slash" aria-hidden="true">/</span>
+              <select id="time-sig-den" class="form-select rhythm-time-sig__select" aria-label="Beat unit">
+                <option value="2">2</option>
+                <option value="4" selected>4</option>
+                <option value="8">8</option>
+                <option value="16">16</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Tempo -->
+          <div class="form-group rhythm-tempo-row">
+            <label class="form-label">Tempo (BPM)</label>
+            <input type="range" id="bpm-slider" class="rhythm-bpm-slider"
+                   min="40" max="200" value="90" aria-label="Tempo slider">
+            <span id="bpm-value" class="rhythm-bpm-display">90</span>
+            <input type="number" id="bpm-input" class="form-input rhythm-bpm-input"
+                   min="40" max="200" value="90" aria-label="Tempo input">
+          </div>
+
+          <!-- Tap-In -->
+          <div class="form-group rhythm-tap-row">
+            <button id="btn-tap-in" class="btn btn--secondary" type="button">
+              Tap Tempo
+            </button>
+            <span id="tap-feedback" class="rhythm-tap-feedback">Tap the button rhythmically to set tempo</span>
+          </div>
+        </div>
+
+        <div class="text-center mt-xl">
+          <button id="btn-start" class="btn btn--primary btn--large">
+            Start Playing
+          </button>
+        </div>
+
+        <!-- Leaderboard preview -->
+        <div class="mt-xl">
+          <h3 class="leaderboard__title">
+            <span aria-hidden="true">&#127942;</span> Top Scores
+          </h3>
+          <div id="setup-leaderboard" class="leaderboard"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== Game Screen ===== -->
+    <section id="screen-game" class="rhythm-screen" hidden>
+      <div class="rhythm-game">
+        <!-- Beat Light -->
+        <div class="rhythm-beat-light-wrap">
+          <div id="beat-light" class="rhythm-beat-light" aria-label="Beat indicator"></div>
+        </div>
+
+        <!-- EKG Canvas -->
+        <div class="rhythm-ekg-area">
+          <canvas id="ekg-canvas" class="rhythm-ekg-canvas" aria-label="Rhythm timeline visualization"></canvas>
+        </div>
+
+        <!-- Stats -->
+        <div class="rhythm-stats" role="status" aria-live="polite">
+          <div class="rhythm-stat">
+            <div class="rhythm-stat__value" id="stat-streak">0</div>
+            <div class="rhythm-stat__label">Streak</div>
+          </div>
+          <div class="rhythm-stat">
+            <div class="rhythm-stat__value" id="stat-accuracy">100%</div>
+            <div class="rhythm-stat__label">Accuracy</div>
+          </div>
+          <div class="rhythm-stat">
+            <div class="rhythm-stat__value" id="stat-beats">0</div>
+            <div class="rhythm-stat__label">Beats</div>
+          </div>
+          <div class="rhythm-stat">
+            <div class="rhythm-stat__value" id="stat-bpm">90</div>
+            <div class="rhythm-stat__label">BPM</div>
+          </div>
+        </div>
+
+        <!-- Hint -->
+        <p class="rhythm-tap-hint">
+          Clap into your microphone or press <kbd>Space</kbd> on each beat
+        </p>
+
+        <!-- Controls -->
+        <div class="rhythm-controls">
+          <button id="btn-stop" class="btn btn--danger">
+            Stop
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== Results Screen ===== -->
+    <section id="screen-results" class="rhythm-screen" hidden>
+      <div class="rhythm-results card">
+        <h2 class="text-center mb-md">Results</h2>
+
+        <div class="score-display mb-lg">
+          <div class="score-display__item">
+            <div class="score-display__value" id="result-score">0</div>
+            <div class="score-display__label">Score</div>
+          </div>
+          <div class="score-display__item">
+            <div class="score-display__value" id="result-accuracy">0%</div>
+            <div class="score-display__label">Accuracy</div>
+          </div>
+          <div class="score-display__item">
+            <div class="score-display__value" id="result-streak">0</div>
+            <div class="score-display__label">Best Streak</div>
+          </div>
+          <div class="score-display__item">
+            <div class="score-display__value" id="result-beats">0/0</div>
+            <div class="score-display__label">Beats Hit</div>
+          </div>
+        </div>
+
+        <div class="mb-lg">
+          <h3 class="leaderboard__title">
+            <span aria-hidden="true">&#127942;</span> Leaderboard
+          </h3>
+          <div id="results-leaderboard" class="leaderboard"></div>
+        </div>
+
+        <div class="text-center">
+          <button id="btn-play-again" class="btn btn--primary btn--large">
+            Play Again
+          </button>
+          <a href="../index.html" class="btn btn--secondary btn--large" style="margin-left: var(--space-md);">
+            Home
+          </a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script type="module" src="rhythm.js"></script>
 </body>
 </html>
