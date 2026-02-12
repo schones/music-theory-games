@@ -1,0 +1,390 @@
+/* ============================================================
+   Interval Training Game — Styles
+   ============================================================ */
+
+/* --- Game Header --- */
+.game-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-lg) 0;
+}
+
+.game-header h1 {
+  font-size: var(--font-size-2xl);
+  flex: 1;
+}
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-muted);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.back-link:hover {
+  background: var(--color-border);
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+/* --- Setup Card --- */
+.setup-card {
+  max-width: 500px;
+  margin-inline: auto;
+}
+
+.mic-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  cursor: pointer;
+  font-weight: var(--font-weight-normal);
+}
+
+.mic-toggle input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--color-primary);
+}
+
+/* --- Tuner Gauge --- */
+.tuner-section {
+  max-width: 300px;
+  margin: 0 auto var(--space-xl);
+}
+
+.tuner-gauge {
+  position: relative;
+  width: 240px;
+  height: 130px;
+  margin: 0 auto;
+  overflow: hidden;
+}
+
+.tuner-gauge__arc {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 220px;
+  height: 110px;
+  border-radius: 110px 110px 0 0;
+  background: conic-gradient(
+    from 0.75turn,
+    var(--color-incorrect) 0deg,
+    var(--color-secondary) 40deg,
+    var(--color-correct) 70deg,
+    var(--color-correct) 110deg,
+    var(--color-secondary) 140deg,
+    var(--color-incorrect) 180deg
+  );
+  opacity: 0.25;
+}
+
+.tuner-gauge__needle {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  width: 4px;
+  height: 100px;
+  margin-left: -2px;
+  background: var(--color-text);
+  border-radius: 2px;
+  transform-origin: bottom center;
+  transform: rotate(0deg);
+  transition: transform 80ms ease-out, background var(--transition-fast);
+  z-index: 2;
+}
+
+.tuner-gauge__needle--in-tune {
+  background: var(--color-correct);
+}
+
+.tuner-gauge__needle--close {
+  background: var(--color-secondary);
+}
+
+.tuner-gauge__needle--off {
+  background: var(--color-incorrect);
+}
+
+.tuner-gauge__center-dot {
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  width: 14px;
+  height: 14px;
+  margin-left: -7px;
+  background: var(--color-text);
+  border-radius: 50%;
+  z-index: 3;
+}
+
+.tuner-gauge__labels {
+  position: absolute;
+  bottom: 4px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  padding: 0 10px;
+}
+
+.tuner-gauge__label {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.tuner-info {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-lg);
+  margin-top: var(--space-md);
+  text-align: center;
+}
+
+.tuner-info__note {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-primary);
+}
+
+.tuner-info__freq,
+.tuner-info__cents {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  align-self: center;
+}
+
+/* --- Interval Button Grid --- */
+.interval-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: var(--space-sm);
+  margin-bottom: var(--space-xl);
+}
+
+.interval-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-height: 64px;
+  padding: var(--space-md);
+  border: 3px solid transparent;
+  border-radius: var(--radius-lg);
+  font-family: var(--font-family);
+  cursor: pointer;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.interval-btn:hover:not([disabled]) {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.interval-btn:active:not([disabled]) {
+  transform: scale(0.96);
+}
+
+.interval-btn__short {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-extra-bold);
+  line-height: 1;
+}
+
+.interval-btn__name {
+  font-size: var(--font-size-xs);
+  opacity: 0.8;
+}
+
+/* Interval quality colors */
+.interval-btn--perfect {
+  background: #ede9fe;
+  color: #5b21b6;
+  border-color: #c4b5fd;
+}
+.interval-btn--perfect:hover:not([disabled]) {
+  background: #ddd6fe;
+}
+
+.interval-btn--major {
+  background: #dbeafe;
+  color: #1e40af;
+  border-color: #93c5fd;
+}
+.interval-btn--major:hover:not([disabled]) {
+  background: #bfdbfe;
+}
+
+.interval-btn--minor {
+  background: #fce7f3;
+  color: #9d174d;
+  border-color: #f9a8d4;
+}
+.interval-btn--minor:hover:not([disabled]) {
+  background: #fbcfe8;
+}
+
+.interval-btn--tritone {
+  background: #fef3c7;
+  color: #92400e;
+  border-color: #fcd34d;
+}
+.interval-btn--tritone:hover:not([disabled]) {
+  background: #fde68a;
+}
+
+/* Correct / Incorrect highlights */
+.interval-btn--correct {
+  background: var(--color-correct) !important;
+  color: white !important;
+  border-color: var(--color-correct) !important;
+  animation: pop 300ms ease;
+}
+
+.interval-btn--incorrect {
+  background: var(--color-incorrect) !important;
+  color: white !important;
+  border-color: var(--color-incorrect) !important;
+  animation: shake 400ms ease;
+}
+
+.interval-btn[disabled] {
+  opacity: 0.6;
+  cursor: default;
+  transform: none !important;
+}
+
+/* --- Feedback Overlay --- */
+.feedback {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  pointer-events: none;
+  animation: fade-in 200ms ease;
+}
+
+.feedback--correct {
+  background: rgba(34, 197, 94, 0.12);
+}
+
+.feedback--incorrect {
+  background: rgba(239, 68, 68, 0.12);
+}
+
+.feedback__content {
+  text-align: center;
+  padding: var(--space-xl);
+  border-radius: var(--radius-xl);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-xl);
+  animation: slide-up 300ms ease;
+}
+
+.feedback--correct .feedback__content {
+  border: 3px solid var(--color-correct);
+}
+
+.feedback--incorrect .feedback__content {
+  border: 3px solid var(--color-incorrect);
+}
+
+.feedback__icon {
+  font-size: 3rem;
+  line-height: 1;
+  margin-bottom: var(--space-sm);
+}
+
+.feedback--correct .feedback__icon {
+  color: var(--color-correct);
+}
+
+.feedback--incorrect .feedback__icon {
+  color: var(--color-incorrect);
+}
+
+.feedback__text {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+}
+
+.feedback__detail {
+  color: var(--color-text-muted);
+  margin-top: var(--space-xs);
+}
+
+.feedback__points {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-accent);
+  margin-top: var(--space-sm);
+}
+
+/* --- Results --- */
+.results-card {
+  max-width: 500px;
+  margin-inline: auto;
+}
+
+.results-score {
+  margin: var(--space-lg) 0;
+}
+
+.results-score__value {
+  display: block;
+  font-size: 4rem;
+  font-weight: var(--font-weight-extra-bold);
+  color: var(--color-primary);
+  line-height: 1;
+}
+
+.results-score__label {
+  font-size: var(--font-size-lg);
+  color: var(--color-text-muted);
+}
+
+/* --- Responsive --- */
+@media (max-width: 640px) {
+  .game-header h1 {
+    font-size: var(--font-size-xl);
+  }
+
+  .interval-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .tuner-gauge {
+    width: 200px;
+    height: 110px;
+  }
+
+  .tuner-gauge__arc {
+    width: 180px;
+    height: 90px;
+    border-radius: 90px 90px 0 0;
+  }
+
+  .tuner-gauge__needle {
+    height: 80px;
+  }
+
+  .tuner-info {
+    flex-direction: column;
+    gap: var(--space-xs);
+  }
+}

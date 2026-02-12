@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Interval Training — Music Theory Games</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../shared/styles.css">
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/tone@14/build/Tone.js"></script>
+</head>
+<body>
+  <div class="container">
+    <header class="game-header">
+      <a href="../index.html" class="back-link" aria-label="Back to hub">&larr; Back</a>
+      <h1>Interval Training</h1>
+    </header>
+
+    <!-- ===== Setup Screen ===== -->
+    <div id="setup-screen" class="screen active">
+      <div class="card setup-card">
+        <h2 class="text-center mb-lg">Game Setup</h2>
+
+        <div class="form-group">
+          <label for="player-name">Your Name</label>
+          <input type="text" id="player-name" class="form-input" placeholder="Enter your name" maxlength="20" autocomplete="off">
+        </div>
+
+        <div class="form-group">
+          <label>Mode</label>
+          <div class="btn-group" role="radiogroup" aria-label="Game mode">
+            <button class="btn btn--secondary active" data-mode="practice" role="radio" aria-checked="true">Practice</button>
+            <button class="btn btn--secondary" data-mode="test" role="radio" aria-checked="false">Test</button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Difficulty</label>
+          <div class="btn-group" role="radiogroup" aria-label="Difficulty level">
+            <button class="btn btn--secondary active" data-difficulty="easy" role="radio" aria-checked="true">Easy</button>
+            <button class="btn btn--secondary" data-difficulty="medium" role="radio" aria-checked="false">Medium</button>
+            <button class="btn btn--secondary" data-difficulty="hard" role="radio" aria-checked="false">Hard</button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="root-note">Root Note</label>
+          <select id="root-note" class="form-select"></select>
+        </div>
+
+        <div class="form-group">
+          <label class="mic-toggle">
+            <input type="checkbox" id="enable-mic">
+            <span>Enable microphone (sing/play the note)</span>
+          </label>
+        </div>
+
+        <button id="start-btn" class="btn btn--primary btn--large btn--block mt-lg">Start Game</button>
+      </div>
+    </div>
+
+    <!-- ===== Game Screen ===== -->
+    <div id="game-screen" class="screen">
+      <div class="stats-bar">
+        <div class="stat">
+          <span class="stat__value" id="score-display">0</span>
+          <span class="stat__label">Score</span>
+        </div>
+        <div class="stat">
+          <span class="stat__value" id="streak-display">0</span>
+          <span class="stat__label">Streak</span>
+        </div>
+        <div class="stat" id="question-counter-wrapper">
+          <span class="stat__value" id="question-display">1/20</span>
+          <span class="stat__label">Question</span>
+        </div>
+        <div class="stat" id="timer-wrapper">
+          <span class="stat__value" id="timer-display">--</span>
+          <span class="stat__label">Time</span>
+        </div>
+      </div>
+
+      <!-- Tuner Gauge -->
+      <div id="tuner-section" class="tuner-section" hidden>
+        <div class="tuner-gauge" id="tuner-gauge" aria-label="Pitch tuner gauge">
+          <div class="tuner-gauge__arc"></div>
+          <div class="tuner-gauge__needle" id="tuner-needle"></div>
+          <div class="tuner-gauge__center-dot"></div>
+          <div class="tuner-gauge__labels">
+            <span class="tuner-gauge__label tuner-gauge__label--flat">Flat</span>
+            <span class="tuner-gauge__label tuner-gauge__label--sharp">Sharp</span>
+          </div>
+        </div>
+        <div class="tuner-info">
+          <span id="detected-note" class="tuner-info__note">--</span>
+          <span id="detected-freq" class="tuner-info__freq">-- Hz</span>
+          <span id="detected-cents" class="tuner-info__cents">-- cents</span>
+        </div>
+      </div>
+
+      <!-- Play Again button -->
+      <div class="text-center mb-lg">
+        <button id="replay-btn" class="btn btn--accent btn--large" aria-label="Play the interval again">
+          &#9654; Play Interval
+        </button>
+      </div>
+
+      <!-- Interval Buttons -->
+      <div id="interval-buttons" class="interval-grid" role="group" aria-label="Choose an interval"></div>
+
+      <!-- Feedback Overlay -->
+      <div id="feedback" class="feedback" hidden>
+        <div class="feedback__content" id="feedback-content"></div>
+      </div>
+    </div>
+
+    <!-- ===== Results Screen ===== -->
+    <div id="results-screen" class="screen">
+      <div class="card results-card text-center">
+        <h2 class="mb-md">Game Over!</h2>
+        <div class="results-score">
+          <span class="results-score__value" id="final-score">0</span>
+          <span class="results-score__label">Points</span>
+        </div>
+        <div class="results-stats" id="results-stats"></div>
+        <button id="play-again-btn" class="btn btn--primary btn--large mt-lg">Play Again</button>
+        <button id="back-to-setup-btn" class="btn btn--secondary btn--large mt-md">Change Settings</button>
+      </div>
+
+      <div class="mt-xl">
+        <h3 class="text-center mb-md">Leaderboard</h3>
+        <table class="leaderboard" id="leaderboard-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Player</th>
+              <th>Score</th>
+              <th>Difficulty</th>
+              <th>Streak</th>
+            </tr>
+          </thead>
+          <tbody id="leaderboard-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="interval-game.js"></script>
+</body>
+</html>
