@@ -22,6 +22,8 @@ music-theory-games/
 │   ├── index.html         # Game page
 │   ├── intervals.js       # Game logic — practice/test modes, difficulty, scoring
 │   └── styles.css         # Game-specific styles
+├── chords/                # Chord identification game
+│   └── index.html         # Game page (inline CSS/JS)
 └── rhythm/                # Rhythm training game
     ├── index.html         # Game page
     ├── rhythm.js          # Game logic — EKG metronome, clap detection, scoring
@@ -184,6 +186,59 @@ IDLE → SETUP → PLAYING → ANSWER_GIVEN → (next question or RESULTS)
 - `renderLeaderboard()` — Pull and display scores from progress.js.
 - `startTest(numQuestions)` — Initialize test mode state.
 - `endTest()` — Calculate final score, save to leaderboard, show results.
+
+## Chords — Chord Identification Game
+
+### Game Modes
+
+1. **Practice Mode** — Listen to chords, pick the type. Immediate feedback. No time pressure. Replay anytime. Shows correct answer and chord notes if wrong.
+2. **Test Mode** — 10 question quiz with randomized root notes. Score tallied at end. Results saved to leaderboard. Optional AI tutor feedback.
+
+### Difficulty Levels
+
+| Level  | Chord Types                        | Inversions |
+|--------|------------------------------------|------------|
+| Easy   | Major, Minor (2 choices)           | Root only  |
+| Medium | Major, Minor, Diminished (3 choices) | Root only  |
+| Hard   | Major, Minor, Diminished (3 choices) | Random (root, 1st, 2nd) |
+
+### Chord Intervals
+
+| Type       | Semitones (root position) |
+|------------|--------------------------|
+| Major      | 0, 4, 7                  |
+| Minor      | 0, 3, 7                  |
+| Diminished | 0, 3, 6                  |
+
+### Features
+
+- **Chord playback via PolySynth** — Three notes played simultaneously using `playNote()` from `shared/audio.js`. Tone.js PolySynth handles polyphonic playback.
+- **Adaptive difficulty** — Uses `selectWeighted()` from `shared/ai.js` to bias question selection toward chord types the player identifies less accurately.
+- **AI tutor feedback** — After test mode, calls `getSessionFeedback()` for encouraging post-session feedback. Shows in a styled panel. Degrades gracefully if no API key.
+- **Scoring** — 100 base points per correct answer. Streak bonus: +25 at 3+, +50 at 5+. Difficulty multiplier: Easy 1×, Medium 1.5×, Hard 2×.
+- **Leaderboard panel** — Shows top scores via `shared/progress.js`. Game identifier: `'chords'`.
+- **Streak tracking** — Current streak and best streak displayed.
+- **Keyboard shortcuts** — Number keys 1–3 for chord type selection. Space to replay chord. Enter for next question (practice mode).
+- **Randomized roots in test mode** — Root notes vary per question (C3–B4 range) to prevent memorization.
+
+### chords/index.html Structure
+
+Single HTML file with inline `<style>` and `<script type="module">`. Game logic is a state machine:
+
+```
+SETUP → PLAYING → ANSWER_GIVEN → (next question or RESULTS)
+```
+
+**State management** is a plain object with direct DOM manipulation. No virtual DOM.
+
+**Key internal functions:**
+
+- `generateQuestion()` — Pick chord type (adaptive selection), apply inversion if hard, pick root.
+- `playChord(root, intervals)` — Play all chord notes simultaneously via PolySynth.
+- `handleAnswer(selected)` — Compare to current chord, update score/streak, record attempt with ai.js, trigger feedback.
+- `applyInversion(intervals, inversion)` — Shift lower notes up an octave for 1st/2nd inversions.
+- `loadNextQuestion()` — Reset UI, generate and auto-play next chord.
+- `showResults()` — Calculate final score, save to leaderboard, request AI feedback.
 
 ## Rhythm — Rhythm Training Game
 

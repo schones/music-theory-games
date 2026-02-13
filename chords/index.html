@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chord Identification — Music Theory Games</title>
+  <link rel="stylesheet" href="../shared/styles.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+  <style>
+    /* ── Setup screen ── */
+    .chords-setup {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: var(--space-xl) 0 var(--space-3xl);
+    }
+    .chords-setup__grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-lg);
+    }
+    @media (max-width: 480px) {
+      .chords-setup__grid { grid-template-columns: 1fr; }
+    }
+
+    /* ── Game screen ── */
+    .chords-game {
+      max-width: 620px;
+      margin: 0 auto;
+      padding: var(--space-lg) 0 var(--space-3xl);
+      text-align: center;
+    }
+
+    .stats-bar {
+      display: flex;
+      justify-content: center;
+      gap: var(--space-xl);
+      flex-wrap: wrap;
+      margin-bottom: var(--space-lg);
+    }
+    .stat__value {
+      font-size: var(--font-size-2xl);
+      font-weight: var(--font-weight-extra-bold);
+      color: var(--color-primary);
+      line-height: 1;
+    }
+    .stat__label {
+      font-size: var(--font-size-xs);
+      color: var(--color-text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-top: var(--space-xs);
+    }
+
+    /* ── Chord display ── */
+    .chords-prompt {
+      font-size: var(--font-size-lg);
+      color: var(--color-text-light);
+      margin-bottom: var(--space-md);
+    }
+    .chords-prompt__root {
+      font-size: var(--font-size-2xl);
+      font-weight: var(--font-weight-extra-bold);
+      color: var(--color-primary);
+      display: block;
+      margin-top: var(--space-xs);
+    }
+
+    /* ── Answer buttons ── */
+    .chords-answers {
+      display: flex;
+      gap: var(--space-md);
+      justify-content: center;
+      flex-wrap: wrap;
+      margin: var(--space-xl) 0;
+    }
+    .chords-answers .btn {
+      min-width: 140px;
+      font-size: var(--font-size-lg);
+      padding: var(--space-md) var(--space-xl);
+    }
+    .chords-answers .btn--correct {
+      background: var(--color-success);
+      color: var(--color-text-inverse);
+      box-shadow: var(--shadow-glow-success);
+    }
+    .chords-answers .btn--wrong {
+      background: var(--color-error);
+      color: var(--color-text-inverse);
+      box-shadow: var(--shadow-glow-error);
+    }
+
+    /* ── Play button ── */
+    .chords-play {
+      margin: var(--space-lg) 0;
+    }
+    .chords-play .btn {
+      font-size: var(--font-size-lg);
+      padding: var(--space-md) var(--space-2xl);
+    }
+
+    /* ── Feedback ── */
+    .feedback {
+      min-height: 1.8em;
+      font-size: var(--font-size-lg);
+      font-weight: var(--font-weight-bold);
+      margin: var(--space-sm) 0;
+    }
+    .feedback--success { color: var(--color-success); }
+    .feedback--miss { color: var(--color-error); }
+
+    /* ── Practice info ── */
+    .chords-info {
+      background: rgba(108, 92, 231, 0.1);
+      border: 1px solid rgba(108, 92, 231, 0.2);
+      border-radius: var(--radius-md);
+      padding: var(--space-md) var(--space-lg);
+      margin: var(--space-md) auto;
+      max-width: 380px;
+      font-size: var(--font-size-sm);
+      color: var(--color-text-light);
+    }
+
+    /* ── Action buttons ── */
+    .action-buttons {
+      display: flex;
+      gap: var(--space-md);
+      justify-content: center;
+      margin-top: var(--space-lg);
+      flex-wrap: wrap;
+    }
+
+    /* ── Results ── */
+    .chords-results {
+      max-width: 500px;
+      margin: var(--space-xl) auto;
+    }
+    .name-entry {
+      margin: var(--space-lg) 0;
+      display: flex;
+      gap: var(--space-sm);
+      justify-content: center;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .name-entry__label {
+      color: var(--color-accent-dark);
+      font-weight: var(--font-weight-bold);
+    }
+
+    /* ── AI feedback ── */
+    .ai-feedback {
+      background: rgba(0, 206, 201, 0.08);
+      border: 1px solid rgba(0, 206, 201, 0.2);
+      border-radius: var(--radius-md);
+      padding: var(--space-md) var(--space-lg);
+      margin: var(--space-lg) 0;
+      font-size: var(--font-size-sm);
+      color: var(--color-text);
+      text-align: left;
+      line-height: var(--line-height-base);
+    }
+    .ai-feedback__title {
+      font-weight: var(--font-weight-bold);
+      color: var(--color-secondary-dark);
+      margin-bottom: var(--space-xs);
+    }
+    .ai-feedback--loading {
+      text-align: center;
+      color: var(--color-text-muted);
+      font-style: italic;
+    }
+  </style>
+</head>
+<body>
+  <header class="mtt-header">
+    <a href="../index.html" class="mtt-header__logo" style="text-decoration:none">
+      <span aria-hidden="true">&#9835;</span> Music Theory Games
+    </a>
+    <nav class="mtt-header__nav">
+      <a href="../index.html" class="mtt-header__link">Home</a>
+      <a href="#" class="mtt-header__link mtt-header__link--active">Chords</a>
+    </nav>
+  </header>
+
+  <main class="container">
+    <!-- ===== Setup Screen ===== -->
+    <section id="screen-setup">
+      <div class="chords-setup">
+        <h1 class="text-center mb-md">Chord Identification</h1>
+        <p class="text-center mb-lg" style="color: var(--color-text-light)">
+          Listen to a chord and identify whether it's major, minor, or diminished.
+        </p>
+
+        <div class="chords-setup__grid">
+          <div class="form-group">
+            <label class="form-label" for="input-name">Your Name</label>
+            <input type="text" id="input-name" class="form-input" value="Player" maxlength="30">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="select-mode">Mode</label>
+            <select id="select-mode" class="form-select">
+              <option value="practice">Practice</option>
+              <option value="test">Test (10 questions)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="select-difficulty">Difficulty</label>
+            <select id="select-difficulty" class="form-select">
+              <option value="easy">Easy (Major vs Minor)</option>
+              <option value="medium">Medium (+ Diminished)</option>
+              <option value="hard">Hard (+ Inversions)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="select-root">Root Note</label>
+            <select id="select-root" class="form-select"></select>
+          </div>
+        </div>
+
+        <div class="text-center mt-xl">
+          <button id="btn-start" class="btn btn--primary btn--large">Start Playing</button>
+        </div>
+
+        <div class="mt-xl">
+          <h3 class="leaderboard__title">
+            <span aria-hidden="true">&#127942;</span> Top Scores
+          </h3>
+          <div id="leaderboard-setup" class="leaderboard"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== Game Screen ===== -->
+    <section id="screen-game" hidden>
+      <div class="chords-game">
+        <div class="stats-bar">
+          <div class="stat">
+            <div class="stat__value" id="stat-score">0</div>
+            <div class="stat__label">Score</div>
+          </div>
+          <div class="stat">
+            <div class="stat__value" id="stat-streak">0</div>
+            <div class="stat__label">Streak</div>
+          </div>
+          <div class="stat" id="stat-q-wrap" hidden>
+            <div class="stat__value" id="stat-question">1/10</div>
+            <div class="stat__label">Question</div>
+          </div>
+          <div class="stat">
+            <div class="stat__value" id="stat-accuracy">0%</div>
+            <div class="stat__label">Accuracy</div>
+          </div>
+        </div>
+
+        <div class="chords-prompt">
+          What type of chord is this?
+          <span class="chords-prompt__root" id="prompt-root">C4</span>
+        </div>
+
+        <!-- Play chord button -->
+        <div class="chords-play">
+          <button id="btn-play" class="btn btn--primary" aria-label="Play chord">
+            Play Chord
+          </button>
+          <button id="btn-replay" class="btn btn--secondary btn--small" style="margin-left: var(--space-sm);" aria-label="Replay chord">
+            Replay
+          </button>
+        </div>
+
+        <!-- Answer buttons -->
+        <div class="chords-answers" id="answer-buttons"></div>
+
+        <div id="feedback" class="feedback" aria-live="polite"></div>
+
+        <!-- Practice info -->
+        <div class="chords-info" id="practice-info" hidden>
+          <div>Chord: <strong id="info-chord">C Major</strong></div>
+          <div>Notes: <strong id="info-notes">C4 E4 G4</strong></div>
+        </div>
+
+        <div class="action-buttons">
+          <button id="btn-next" class="btn btn--success" hidden>Next Chord</button>
+          <button id="btn-quit" class="btn btn--secondary btn--small">Quit</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== Results Screen ===== -->
+    <section id="screen-results" hidden>
+      <div class="chords-results card">
+        <h2 class="text-center mb-lg">Test Complete!</h2>
+        <div class="score-display mb-lg">
+          <div class="score-display__item">
+            <div class="score-display__value" id="result-score">0</div>
+            <div class="score-display__label">Score</div>
+          </div>
+          <div class="score-display__item">
+            <div class="score-display__value" id="result-correct">0/10</div>
+            <div class="score-display__label">Correct</div>
+          </div>
+          <div class="score-display__item">
+            <div class="score-display__value" id="result-streak">0</div>
+            <div class="score-display__label">Best Streak</div>
+          </div>
+        </div>
+
+        <div id="ai-feedback-wrap" hidden>
+          <div class="ai-feedback ai-feedback--loading" id="ai-feedback">
+            Getting feedback from your tutor...
+          </div>
+        </div>
+
+        <div id="name-entry-wrap" class="name-entry" hidden>
+          <span class="name-entry__label">&#127881; Top 5! Enter name:</span>
+          <input type="text" id="result-name" class="form-input" maxlength="30" style="width:150px">
+          <button id="btn-save-score" class="btn btn--primary btn--small">Save</button>
+        </div>
+
+        <div class="mt-lg">
+          <h3 class="leaderboard__title">
+            <span aria-hidden="true">&#127942;</span> Leaderboard
+          </h3>
+          <div id="leaderboard-results" class="leaderboard"></div>
+        </div>
+
+        <div class="text-center mt-xl">
+          <button id="btn-again" class="btn btn--primary btn--large">Play Again</button>
+          <a href="../index.html" class="btn btn--secondary btn--large" style="margin-left:var(--space-md)">Home</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script type="module">
+    import { initAudio, playNote, noteToFrequency, frequencyToNote, getNoteRange } from '../shared/audio.js';
+    import { saveScore, getLeaderboard, renderLeaderboard } from '../shared/progress.js';
+    import {
+      recordAttempt, recordSession, selectWeighted,
+      getSessionFeedback, isAIAvailable
+    } from '../shared/ai.js';
+
+    /* ── Constants ── */
+    const GAME_ID = 'chords';
+    const TEST_TOTAL = 10;
+    const AUTO_ADVANCE_MS = 1400;
+    const CHORD_DURATION = 1.2;
+
+    const CHORD_TYPES = {
+      Major:      [0, 4, 7],
+      Minor:      [0, 3, 7],
+      Diminished: [0, 3, 6],
+    };
+
+    const DIFFICULTY_CHORDS = {
+      easy:   ['Major', 'Minor'],
+      medium: ['Major', 'Minor', 'Diminished'],
+      hard:   ['Major', 'Minor', 'Diminished'],
+    };
+
+    /* Inversions: 0 = root position, 1 = 1st inversion, 2 = 2nd inversion */
+    function applyInversion(intervals, inversion) {
+      const notes = [...intervals];
+      if (inversion >= 1) notes[0] += 12;
+      if (inversion >= 2) notes[1] += 12;
+      notes.sort((a, b) => a - b);
+      return notes;
+    }
+
+    const DIFFICULTY_MULTIPLIER = { easy: 1, medium: 1.5, hard: 2 };
+
+    /* ── State ── */
+    const state = {
+      mode: 'practice',
+      difficulty: 'easy',
+      rootNote: 'C4',
+      playerName: 'Player',
+      currentChord: null, // { type, root, intervals, inversion }
+      answered: false,
+      score: 0,
+      streak: 0,
+      bestStreak: 0,
+      attempts: 0,
+      hits: 0,
+      testIndex: 0,
+      perSkill: {},       // { [chordType]: { attempts, hits } } for session summary
+    };
+
+    /* ── DOM helpers ── */
+    const $ = (id) => document.getElementById(id);
+
+    /* ── Note range for root selection ── */
+    const ROOT_NOTES = ['C3', 'D3', 'E3', 'F3', 'G3', 'A3', 'B3',
+                        'C4', 'D4', 'E4', 'F4', 'G4', 'A4', 'B4', 'C5'];
+
+    /* ── Populate selectors ── */
+    function populateSelectors() {
+      const sel = $('select-root');
+      sel.innerHTML = '';
+      ROOT_NOTES.forEach(n => {
+        const opt = document.createElement('option');
+        opt.value = n;
+        opt.textContent = n;
+        if (n === 'C4') opt.selected = true;
+        sel.appendChild(opt);
+      });
+    }
+
+    /* ── Chord playback ── */
+    function playChord(root, intervals) {
+      const rootFreq = noteToFrequency(root);
+      const now = Tone.now();
+      intervals.forEach(semitones => {
+        const freq = rootFreq * Math.pow(2, semitones / 12);
+        const noteInfo = frequencyToNote(freq);
+        if (noteInfo) {
+          playNote(noteInfo.fullName, CHORD_DURATION);
+        }
+      });
+    }
+
+    /* ── Generate question ── */
+    function generateQuestion() {
+      const available = DIFFICULTY_CHORDS[state.difficulty];
+
+      // Use adaptive selection if available
+      const chordType = available.length > 1
+        ? (selectWeighted(GAME_ID, available) || available[Math.floor(Math.random() * available.length)])
+        : available[0];
+
+      const baseIntervals = CHORD_TYPES[chordType];
+      let inversion = 0;
+
+      if (state.difficulty === 'hard') {
+        inversion = Math.floor(Math.random() * 3);
+      }
+
+      const intervals = applyInversion(baseIntervals, inversion);
+
+      // Randomize root in test mode for variety
+      let root = state.rootNote;
+      if (state.mode === 'test') {
+        const roots = ROOT_NOTES.filter(n => {
+          const octave = parseInt(n.slice(-1), 10);
+          return octave >= 3 && octave <= 4;
+        });
+        root = roots[Math.floor(Math.random() * roots.length)];
+      }
+
+      state.currentChord = { type: chordType, root, intervals, inversion };
+      return state.currentChord;
+    }
+
+    /* ── Build answer buttons ── */
+    function buildAnswerButtons() {
+      const container = $('answer-buttons');
+      container.innerHTML = '';
+      const chords = DIFFICULTY_CHORDS[state.difficulty];
+
+      chords.forEach((type, i) => {
+        const btn = document.createElement('button');
+        btn.className = 'btn btn--secondary';
+        btn.textContent = type;
+        btn.dataset.chord = type;
+        btn.setAttribute('aria-label', `${type} chord`);
+        btn.addEventListener('click', () => handleAnswer(type));
+        container.appendChild(btn);
+      });
+    }
+
+    /* ── Handle answer ── */
+    function handleAnswer(selected) {
+      if (state.answered) return;
+      state.answered = true;
+      state.attempts++;
+
+      const correct = state.currentChord.type;
+      const hit = selected === correct;
+
+      // Record attempt with ai.js
+      recordAttempt(GAME_ID, correct, { hit });
+
+      // Track per-skill for session summary
+      if (!state.perSkill[correct]) state.perSkill[correct] = { attempts: 0, hits: 0 };
+      state.perSkill[correct].attempts++;
+
+      const buttons = $('answer-buttons').querySelectorAll('.btn');
+
+      if (hit) {
+        state.hits++;
+        state.streak++;
+        if (state.streak > state.bestStreak) state.bestStreak = state.streak;
+        state.perSkill[correct].hits++;
+
+        // Score: base + streak bonus, multiplied by difficulty
+        const streakBonus = state.streak >= 5 ? 50 : state.streak >= 3 ? 25 : 0;
+        const points = Math.round((100 + streakBonus) * DIFFICULTY_MULTIPLIER[state.difficulty]);
+        state.score += points;
+
+        const fb = $('feedback');
+        fb.textContent = `Correct! +${points} points`;
+        fb.className = 'feedback feedback--success animate-pop';
+
+        buttons.forEach(b => {
+          if (b.dataset.chord === selected) {
+            b.classList.remove('btn--secondary');
+            b.classList.add('btn--correct');
+          }
+        });
+      } else {
+        state.streak = 0;
+
+        const fb = $('feedback');
+        fb.textContent = `That was ${correct}`;
+        fb.className = 'feedback feedback--miss animate-shake';
+
+        buttons.forEach(b => {
+          if (b.dataset.chord === selected) {
+            b.classList.remove('btn--secondary');
+            b.classList.add('btn--wrong');
+          }
+          if (b.dataset.chord === correct) {
+            b.classList.remove('btn--secondary');
+            b.classList.add('btn--correct');
+          }
+        });
+      }
+
+      // Show practice info after answering
+      if (state.mode === 'practice') {
+        showPracticeInfo();
+        $('btn-next').hidden = false;
+      }
+
+      updateStats();
+
+      // Test mode: auto-advance
+      if (state.mode === 'test') {
+        state.testIndex++;
+        if (state.testIndex >= TEST_TOTAL) {
+          setTimeout(() => showResults(), AUTO_ADVANCE_MS);
+        } else {
+          setTimeout(() => loadNextQuestion(), AUTO_ADVANCE_MS);
+        }
+      }
+    }
+
+    /* ── Show practice info ── */
+    function showPracticeInfo() {
+      const chord = state.currentChord;
+      if (!chord) return;
+      $('info-chord').textContent = `${chord.root} ${chord.type}${chord.inversion > 0 ? ` (inv. ${chord.inversion})` : ''}`;
+
+      const rootFreq = noteToFrequency(chord.root);
+      const noteNames = chord.intervals.map(s => {
+        const info = frequencyToNote(rootFreq * Math.pow(2, s / 12));
+        return info ? info.fullName : '?';
+      });
+      $('info-notes').textContent = noteNames.join('  ');
+      $('practice-info').hidden = false;
+    }
+
+    /* ── Load next question ── */
+    function loadNextQuestion() {
+      state.answered = false;
+
+      generateQuestion();
+      buildAnswerButtons();
+
+      $('prompt-root').textContent = state.currentChord.root;
+      $('feedback').textContent = '';
+      $('feedback').className = 'feedback';
+      $('practice-info').hidden = true;
+      $('btn-next').hidden = true;
+
+      updateStats();
+
+      // Auto-play the chord after a short delay
+      setTimeout(() => playChord(state.currentChord.root, state.currentChord.intervals), 300);
+    }
+
+    /* ── Stats ── */
+    function updateStats() {
+      $('stat-score').textContent = state.score;
+      $('stat-streak').textContent = state.streak;
+      const acc = state.attempts > 0 ? Math.round(state.hits / state.attempts * 100) : 0;
+      $('stat-accuracy').textContent = `${acc}%`;
+      if (state.mode === 'test') {
+        $('stat-question').textContent = `${Math.min(state.testIndex + 1, TEST_TOTAL)}/${TEST_TOTAL}`;
+      }
+    }
+
+    /* ── Leaderboard ── */
+    function refreshLeaderboard(id) {
+      renderLeaderboard($(id), GAME_ID, 5);
+    }
+
+    function isTopFive(score) {
+      const board = getLeaderboard(GAME_ID, 5);
+      return board.length < 5 || score > board[board.length - 1].score;
+    }
+
+    /* ── Screens ── */
+    function showScreen(name) {
+      ['setup', 'game', 'results'].forEach(s => {
+        $(`screen-${s}`).hidden = s !== name;
+      });
+    }
+
+    /* ── Start game ── */
+    async function handleStart() {
+      state.mode = $('select-mode').value;
+      state.difficulty = $('select-difficulty').value;
+      state.rootNote = $('select-root').value;
+      state.playerName = $('input-name').value.trim() || 'Player';
+      state.score = 0;
+      state.streak = 0;
+      state.bestStreak = 0;
+      state.attempts = 0;
+      state.hits = 0;
+      state.testIndex = 0;
+      state.answered = false;
+      state.currentChord = null;
+      state.perSkill = {};
+
+      try {
+        await initAudio();
+      } catch (err) {
+        $('feedback').textContent = 'Audio init failed: ' + err.message;
+        return;
+      }
+
+      if (state.mode === 'test') {
+        $('stat-q-wrap').hidden = false;
+      } else {
+        $('stat-q-wrap').hidden = true;
+      }
+
+      buildAnswerButtons();
+      loadNextQuestion();
+      showScreen('game');
+    }
+
+    /* ── Results ── */
+    async function showResults() {
+      const accuracy = state.attempts > 0 ? Math.round(state.hits / state.attempts * 100) : 0;
+
+      $('result-score').textContent = state.score;
+      $('result-correct').textContent = `${state.hits}/${TEST_TOTAL}`;
+      $('result-streak').textContent = state.bestStreak;
+
+      // Record session with ai.js
+      const sessionData = {
+        mode: state.mode,
+        difficulty: state.difficulty,
+        score: state.score,
+        accuracy,
+        bestStreak: state.bestStreak,
+        skills: state.perSkill,
+      };
+      recordSession(GAME_ID, sessionData);
+
+      // Save score
+      if (isTopFive(state.score)) {
+        $('name-entry-wrap').hidden = false;
+        $('result-name').value = state.playerName;
+      } else {
+        $('name-entry-wrap').hidden = true;
+        saveScore(GAME_ID, state.playerName, state.score, {
+          difficulty: state.difficulty,
+          bestStreak: state.bestStreak,
+          accuracy,
+        });
+      }
+
+      refreshLeaderboard('leaderboard-results');
+      showScreen('results');
+
+      // Get AI feedback (non-blocking)
+      if (isAIAvailable()) {
+        $('ai-feedback-wrap').hidden = false;
+        $('ai-feedback').textContent = 'Getting feedback from your tutor...';
+        $('ai-feedback').className = 'ai-feedback ai-feedback--loading';
+
+        const feedback = await getSessionFeedback(GAME_ID, sessionData);
+        if (feedback) {
+          $('ai-feedback').innerHTML = `<div class="ai-feedback__title">Your Tutor Says:</div>${feedback}`;
+          $('ai-feedback').className = 'ai-feedback animate-fade-in';
+        } else {
+          $('ai-feedback-wrap').hidden = true;
+        }
+      } else {
+        $('ai-feedback-wrap').hidden = true;
+      }
+    }
+
+    function handleSaveScore() {
+      const name = $('result-name').value.trim() || 'Player';
+      const accuracy = state.attempts > 0 ? Math.round(state.hits / state.attempts * 100) : 0;
+      saveScore(GAME_ID, name, state.score, {
+        difficulty: state.difficulty,
+        bestStreak: state.bestStreak,
+        accuracy,
+      });
+      $('name-entry-wrap').hidden = true;
+      refreshLeaderboard('leaderboard-results');
+    }
+
+    /* ── Quit ── */
+    function handleQuit() {
+      showScreen('setup');
+      refreshLeaderboard('leaderboard-setup');
+    }
+
+    /* ── Keyboard shortcuts ── */
+    function handleKeyboard(e) {
+      if ($('screen-game').hidden) return;
+
+      // Space = replay chord
+      if (e.code === 'Space') {
+        e.preventDefault();
+        if (state.currentChord) {
+          playChord(state.currentChord.root, state.currentChord.intervals);
+        }
+        return;
+      }
+
+      // Number keys 1-3 = answer buttons
+      const num = parseInt(e.key, 10);
+      if (num >= 1 && num <= 3) {
+        const buttons = $('answer-buttons').querySelectorAll('.btn');
+        if (num <= buttons.length) {
+          buttons[num - 1].click();
+        }
+        return;
+      }
+
+      // Enter = next (practice mode)
+      if (e.code === 'Enter' && !$('btn-next').hidden) {
+        loadNextQuestion();
+      }
+    }
+
+    /* ── Event binding ── */
+    function bindEvents() {
+      $('btn-start').addEventListener('click', handleStart);
+      $('btn-play').addEventListener('click', () => {
+        if (state.currentChord) {
+          playChord(state.currentChord.root, state.currentChord.intervals);
+        }
+      });
+      $('btn-replay').addEventListener('click', () => {
+        if (state.currentChord) {
+          playChord(state.currentChord.root, state.currentChord.intervals);
+        }
+      });
+      $('btn-next').addEventListener('click', () => loadNextQuestion());
+      $('btn-quit').addEventListener('click', handleQuit);
+      $('btn-again').addEventListener('click', () => {
+        showScreen('setup');
+        refreshLeaderboard('leaderboard-setup');
+      });
+      $('btn-save-score').addEventListener('click', handleSaveScore);
+
+      document.addEventListener('keydown', handleKeyboard);
+    }
+
+    /* ── Init ── */
+    function init() {
+      populateSelectors();
+      refreshLeaderboard('leaderboard-setup');
+      bindEvents();
+    }
+
+    init();
+  </script>
+</body>
+</html>

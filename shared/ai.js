@@ -8,7 +8,17 @@
  * All AI features degrade gracefully if no API key is set.
  */
 
-import { CLAUDE_API_KEY } from "./config.js";
+/* ---------------------------------------------------------- */
+/*  Config — dynamic import for graceful degradation           */
+/* ---------------------------------------------------------- */
+
+let CLAUDE_API_KEY = "";
+try {
+  const config = await import("./config.js");
+  CLAUDE_API_KEY = config.CLAUDE_API_KEY || "";
+} catch {
+  // config.js not found — AI features disabled
+}
 
 /* ---------------------------------------------------------- */
 /*  Constants                                                  */
