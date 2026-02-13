@@ -9,11 +9,15 @@ A browser-based music theory education platform targeting kids ages 8–12. Pure
 ```
 music-theory-games/
 ├── CLAUDE.md              # This file — architecture reference
+├── .gitignore             # Ignores shared/config.js (contains API key)
 ├── index.html             # Main hub page — game launcher
 ├── shared/                # Shared modules and design system
 │   ├── styles.css         # Global design system (CSS custom properties)
 │   ├── progress.js        # Leaderboard & score tracking (localStorage)
-│   └── audio.js           # Web Audio API utilities, pitch detection, tone generation
+│   ├── audio.js           # Web Audio API utilities, pitch detection, tone generation
+│   ├── ai.js              # Adaptive difficulty tracking & AI tutor feedback
+│   ├── config.js          # API key config (gitignored, not committed)
+│   └── config.example.js  # Template — copy to config.js and add your key
 ├── harmony/               # Interval training game
 │   ├── index.html         # Game page
 │   ├── intervals.js       # Game logic — practice/test modes, difficulty, scoring
@@ -79,6 +83,64 @@ Web Audio API utility module. Wraps Tone.js for synthesis and raw Web Audio for 
 - `getSemitones(intervalName)` — Reverse lookup.
 
 **Pitch detection algorithm:** Autocorrelation on raw audio buffer from `AnalyserNode.getFloatTimeDomainData()`. Finds the dominant period by locating the first significant peak in the autocorrelation function after the initial drop. Resolution is sufficient for distinguishing semitones in the C3–C5 range.
+
+### shared/config.js
+
+API key configuration. **Not committed to git** — each developer copies `config.example.js` to `config.js` and adds their own key.
+
+**Setup:**
+
+```bash
+cp shared/config.example.js shared/config.js
+# Edit shared/config.js and add your Anthropic API key
+```
+
+**Exports:**
+
+- `CLAUDE_API_KEY` — Anthropic API key string. Empty string disables AI features.
+
+### shared/ai.js
+
+Adaptive difficulty tracking and optional AI tutor feedback. All features degrade gracefully if no API key is set — games work identically without one.
+
+**Key exports:**
+
+- `recordAttempt(game, skill, result)` — Track a single practice attempt. `result` is `{ hit: boolean, centsOff?: number, responseMs?: number }`.
+- `recordSession(game, sessionData)` — Save a completed session summary (capped at 50 per game).
+- `getPerformance(game)` — Get raw performance data for a game.
+- `getPerformanceSummary(game)` — Get a human-readable summary (used as context for AI prompts).
+- `getAdaptiveWeights(game, skills)` — Calculate probability weights biased toward weak areas. Returns `{ [skill]: probability }` summing to 1.
+- `selectWeighted(game, skills)` — Pick a skill using adaptive weighted random selection.
+- `getWeakAreas(game, limit?)` — Get skills sorted by weakness (lowest accuracy first).
+- `getSessionFeedback(game, sessionData)` — Call Claude API for post-session feedback. Returns `null` if no API key or on failure.
+- `isAIAvailable()` — Check if a Claude API key is configured.
+- `clearPerformance(game)` — Reset all tracking data for a game.
+
+**Storage schema (localStorage keys):**
+
+- `mtt_ai_{game}` — JSON object `{ skills: { [name]: SkillData }, sessions: SessionData[] }`.
+- `SkillData`: `{ attempts, hits, totalCentsOff, totalResponseMs, lastAttempt, streak, bestStreak }`.
+- `SessionData`: `{ date, mode, difficulty, score, accuracy, ... }`.
+
+**Adaptive algorithm:** Skills with lower accuracy receive higher selection weights. Base weight = `1 - accuracy`. Untried skills get weight 1.0. Skills with fewer than 5 attempts get a 1.2× novelty bonus. Skills not practiced in 24+ hours get a 1.3× recency bonus. All weights are normalized to probabilities summing to 1.
+
+**AI tutor integration:** Optional. When `CLAUDE_API_KEY` is set, `getSessionFeedback()` calls the Claude API (`claude-haiku-4-5-20251001`) with a kid-friendly tutor system prompt and the session performance data. Returns 2–3 sentences of encouraging feedback, or `null` on any failure. Uses `anthropic-dangerous-direct-browser-access` header for browser-side requests — acceptable for local educational use since the key lives in a gitignored config file.
+
+**Game integration pattern:**
+
+```javascript
+import { recordAttempt, selectWeighted, getSessionFeedback } from '../shared/ai.js';
+
+// During gameplay — record each attempt
+recordAttempt('harmony-training', 'Perfect 5th', { hit: true, centsOff: -3 });
+
+// When generating next question — use adaptive selection
+const nextInterval = selectWeighted('harmony-training', availableIntervals);
+
+// After session ends — get optional AI feedback
+const feedback = await getSessionFeedback('harmony-training', sessionSummary);
+if (feedback) showFeedbackToUser(feedback);
+```
 
 ## Harmony — Interval Training Game
 
@@ -216,3 +278,7 @@ Then open `http://localhost:8000` in a browser.
 - Pitch detection requires HTTPS or localhost (mic access is restricted on insecure origins).
 - localStorage is available in all modern browsers but may be disabled in private/incognito mode.
 - Tested target: Chrome 90+, Firefox 88+, Safari 14+, Edge 90+.
+
+## TODO
+
+- Experiment with themes — try different color palettes, dark/light mode toggle, kid-friendly themes.
