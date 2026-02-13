@@ -1,0 +1,1065 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Melody Echo — Music Theory Games</title>
+  <link rel="stylesheet" href="../shared/styles.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+  <style>
+    /* ── Setup screen ── */
+    .melody-setup {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: var(--space-xl) 0 var(--space-3xl);
+    }
+    .melody-setup__grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-lg);
+    }
+    @media (max-width: 480px) {
+      .melody-setup__grid { grid-template-columns: 1fr; }
+    }
+
+    /* ── Game screen ── */
+    .melody-game {
+      max-width: 700px;
+      margin: 0 auto;
+      padding: var(--space-lg) 0 var(--space-3xl);
+      text-align: center;
+    }
+
+    .stats-bar {
+      display: flex;
+      justify-content: center;
+      gap: var(--space-xl);
+      flex-wrap: wrap;
+      margin-bottom: var(--space-lg);
+    }
+    .stat__value {
+      font-size: var(--font-size-2xl);
+      font-weight: var(--font-weight-extra-bold);
+      color: var(--color-primary);
+      line-height: 1;
+    }
+    .stat__label {
+      font-size: var(--font-size-xs);
+      color: var(--color-text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-top: var(--space-xs);
+    }
+
+    /* ── Phase prompt ── */
+    .melody-phase {
+      font-size: var(--font-size-lg);
+      color: var(--color-text-light);
+      margin-bottom: var(--space-md);
+      font-weight: var(--font-weight-bold);
+      min-height: 1.6em;
+    }
+    .melody-phase--listen { color: var(--color-primary); }
+    .melody-phase--sing { color: var(--color-accent-dark); }
+    .melody-phase--done { color: var(--color-success); }
+
+    /* ── Note boxes ── */
+    .melody-notes {
+      display: flex;
+      gap: var(--space-md);
+      justify-content: center;
+      flex-wrap: wrap;
+      margin: var(--space-lg) 0;
+    }
+    .melody-note {
+      width: 84px;
+      border: 3px solid var(--color-border);
+      border-radius: var(--radius-md);
+      padding: var(--space-md) var(--space-sm);
+      text-align: center;
+      transition: all var(--transition-base);
+      background: var(--color-bg-card);
+    }
+    .melody-note__number {
+      font-size: var(--font-size-xs);
+      color: var(--color-text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+    .melody-note__display {
+      font-size: var(--font-size-lg);
+      font-weight: var(--font-weight-extra-bold);
+      min-height: 1.5em;
+      color: var(--color-text);
+      margin-top: var(--space-xs);
+    }
+    .melody-note__sub {
+      font-size: var(--font-size-xs);
+      color: var(--color-text-muted);
+      min-height: 1.2em;
+      margin-top: 2px;
+    }
+
+    .melody-note--playing {
+      border-color: var(--color-primary);
+      background: rgba(108, 92, 231, 0.08);
+      box-shadow: var(--shadow-glow-primary);
+    }
+    .melody-note--active {
+      border-color: var(--color-accent-dark);
+      background: rgba(253, 203, 110, 0.1);
+      animation: pulse-glow 1.5s ease infinite;
+    }
+    .melody-note--locked {
+      border-color: var(--color-primary-light);
+      background: rgba(162, 155, 254, 0.08);
+    }
+    .melody-note--correct {
+      border-color: var(--color-success);
+      background: rgba(0, 184, 148, 0.1);
+    }
+    .melody-note--correct .melody-note__display { color: var(--color-success); }
+    .melody-note--close {
+      border-color: var(--color-warning);
+      background: rgba(253, 203, 110, 0.1);
+    }
+    .melody-note--close .melody-note__display { color: var(--color-accent-dark); }
+    .melody-note--wrong {
+      border-color: var(--color-error);
+      background: rgba(214, 48, 49, 0.08);
+    }
+    .melody-note--wrong .melody-note__display { color: var(--color-error); }
+    .melody-note--skipped {
+      border-color: var(--color-text-muted);
+      opacity: 0.5;
+    }
+
+    /* ── Live pitch indicator ── */
+    .melody-live {
+      margin: var(--space-md) 0;
+    }
+    .melody-live__note {
+      font-size: var(--font-size-2xl);
+      font-weight: var(--font-weight-extra-bold);
+      color: var(--color-text);
+    }
+    .melody-live__detail {
+      font-size: var(--font-size-sm);
+      color: var(--color-text-muted);
+    }
+
+    /* ── Buttons ── */
+    .melody-buttons {
+      display: flex;
+      gap: var(--space-md);
+      justify-content: center;
+      margin-top: var(--space-lg);
+      flex-wrap: wrap;
+    }
+
+    /* ── Feedback ── */
+    .feedback {
+      min-height: 1.8em;
+      font-size: var(--font-size-lg);
+      font-weight: var(--font-weight-bold);
+      margin: var(--space-sm) 0;
+    }
+    .feedback--success { color: var(--color-success); }
+    .feedback--miss { color: var(--color-error); }
+    .feedback--partial { color: var(--color-accent-dark); }
+
+    /* ── Results ── */
+    .melody-results {
+      max-width: 500px;
+      margin: var(--space-xl) auto;
+    }
+    .name-entry {
+      margin: var(--space-lg) 0;
+      display: flex;
+      gap: var(--space-sm);
+      justify-content: center;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .name-entry__label {
+      color: var(--color-accent-dark);
+      font-weight: var(--font-weight-bold);
+    }
+
+    /* ── AI feedback ── */
+    .ai-feedback {
+      background: rgba(0, 206, 201, 0.08);
+      border: 1px solid rgba(0, 206, 201, 0.2);
+      border-radius: var(--radius-md);
+      padding: var(--space-md) var(--space-lg);
+      margin: var(--space-lg) 0;
+      font-size: var(--font-size-sm);
+      color: var(--color-text);
+      text-align: left;
+      line-height: var(--line-height-base);
+    }
+    .ai-feedback__title {
+      font-weight: var(--font-weight-bold);
+      color: var(--color-secondary-dark);
+      margin-bottom: var(--space-xs);
+    }
+    .ai-feedback--loading {
+      text-align: center;
+      color: var(--color-text-muted);
+      font-style: italic;
+    }
+
+    /* ── Unlock notification ── */
+    .unlock-banner {
+      background: rgba(108, 92, 231, 0.1);
+      border: 2px solid var(--color-primary-light);
+      border-radius: var(--radius-md);
+      padding: var(--space-sm) var(--space-md);
+      margin: var(--space-sm) 0;
+      font-weight: var(--font-weight-bold);
+      color: var(--color-primary);
+    }
+  </style>
+</head>
+<body>
+  <header class="mtt-header">
+    <a href="../index.html" class="mtt-header__logo" style="text-decoration:none">
+      <span aria-hidden="true">&#9835;</span> Music Theory Games
+    </a>
+    <nav class="mtt-header__nav">
+      <a href="../index.html" class="mtt-header__link">Home</a>
+      <a href="#" class="mtt-header__link mtt-header__link--active">Melody</a>
+    </nav>
+  </header>
+
+  <main class="container">
+    <!-- ===== Setup Screen ===== -->
+    <section id="screen-setup">
+      <div class="melody-setup">
+        <h1 class="text-center mb-md">Melody Echo</h1>
+        <p class="text-center mb-lg" style="color: var(--color-text-light)">
+          Listen to a short melody, then sing it back note by note.
+          Unlock longer melodies as you improve!
+        </p>
+
+        <div class="melody-setup__grid">
+          <div class="form-group">
+            <label class="form-label" for="input-name">Your Name</label>
+            <input type="text" id="input-name" class="form-input" value="Player" maxlength="30">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="select-mode">Mode</label>
+            <select id="select-mode" class="form-select">
+              <option value="practice">Practice</option>
+              <option value="test">Test (10 melodies)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="select-difficulty">Difficulty</label>
+            <select id="select-difficulty" class="form-select">
+              <option value="easy">Easy (stepwise)</option>
+              <option value="medium">Medium (+ 3rds)</option>
+              <option value="hard">Hard (+ leaps)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="select-root">Key</label>
+            <select id="select-root" class="form-select"></select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="select-length">Melody Length</label>
+            <select id="select-length" class="form-select"></select>
+          </div>
+        </div>
+
+        <div class="text-center mt-xl">
+          <button id="btn-start" class="btn btn--primary btn--large">Start Playing</button>
+        </div>
+
+        <div class="mt-xl">
+          <h3 class="leaderboard__title">
+            <span aria-hidden="true">&#127942;</span> Top Scores
+          </h3>
+          <div id="leaderboard-setup" class="leaderboard"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== Game Screen ===== -->
+    <section id="screen-game" hidden>
+      <div class="melody-game">
+        <div class="stats-bar">
+          <div class="stat">
+            <div class="stat__value" id="stat-score">0</div>
+            <div class="stat__label">Score</div>
+          </div>
+          <div class="stat">
+            <div class="stat__value" id="stat-streak">0</div>
+            <div class="stat__label">Streak</div>
+          </div>
+          <div class="stat" id="stat-q-wrap" hidden>
+            <div class="stat__value" id="stat-question">1/10</div>
+            <div class="stat__label">Melody</div>
+          </div>
+          <div class="stat">
+            <div class="stat__value" id="stat-accuracy">0%</div>
+            <div class="stat__label">Accuracy</div>
+          </div>
+        </div>
+
+        <div class="melody-phase" id="phase-text">Get ready...</div>
+
+        <!-- Note boxes -->
+        <div class="melody-notes" id="melody-notes"></div>
+
+        <!-- Live pitch display -->
+        <div class="melody-live" id="melody-live" hidden>
+          <div class="melody-live__note" id="live-note">--</div>
+          <div class="melody-live__detail" id="live-detail">Listening...</div>
+          <div style="font-size: var(--font-size-xs); color: var(--color-text-muted); margin-top: var(--space-xs);">
+            Press <strong>Space</strong> to skip a note
+          </div>
+        </div>
+
+        <div id="feedback" class="feedback" aria-live="polite"></div>
+        <div id="unlock-banner" hidden></div>
+
+        <div class="melody-buttons">
+          <button id="btn-replay" class="btn btn--secondary" hidden>Replay Melody</button>
+          <button id="btn-next" class="btn btn--success" hidden>Next Melody</button>
+          <button id="btn-quit" class="btn btn--secondary btn--small">Quit</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== Results Screen ===== -->
+    <section id="screen-results" hidden>
+      <div class="melody-results card">
+        <h2 class="text-center mb-lg">Test Complete!</h2>
+        <div class="score-display mb-lg">
+          <div class="score-display__item">
+            <div class="score-display__value" id="result-score">0</div>
+            <div class="score-display__label">Score</div>
+          </div>
+          <div class="score-display__item">
+            <div class="score-display__value" id="result-perfect">0/10</div>
+            <div class="score-display__label">Perfect</div>
+          </div>
+          <div class="score-display__item">
+            <div class="score-display__value" id="result-streak">0</div>
+            <div class="score-display__label">Best Streak</div>
+          </div>
+        </div>
+
+        <div id="ai-feedback-wrap" hidden>
+          <div class="ai-feedback ai-feedback--loading" id="ai-feedback">
+            Getting feedback from your tutor...
+          </div>
+        </div>
+
+        <div id="name-entry-wrap" class="name-entry" hidden>
+          <span class="name-entry__label">&#127881; Top 5! Enter name:</span>
+          <input type="text" id="result-name" class="form-input" maxlength="30" style="width:150px">
+          <button id="btn-save-score" class="btn btn--primary btn--small">Save</button>
+        </div>
+
+        <div class="mt-lg">
+          <h3 class="leaderboard__title">
+            <span aria-hidden="true">&#127942;</span> Leaderboard
+          </h3>
+          <div id="leaderboard-results" class="leaderboard"></div>
+        </div>
+
+        <div class="text-center mt-xl">
+          <button id="btn-again" class="btn btn--primary btn--large">Play Again</button>
+          <a href="../index.html" class="btn btn--secondary btn--large" style="margin-left:var(--space-md)">Home</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script type="module">
+    import {
+      initAudio, playNote, noteToFrequency, frequencyToNote,
+      startPitchDetection, stopPitchDetection, NOTE_NAMES
+    } from '../shared/audio.js';
+    import {
+      saveScore, getLeaderboard, renderLeaderboard,
+      getPreference, savePreference
+    } from '../shared/progress.js';
+    import {
+      recordAttempt, recordSession, selectWeighted,
+      getSessionFeedback, isAIAvailable
+    } from '../shared/ai.js';
+
+    /* ── Constants ── */
+    const GAME_ID = 'melody';
+    const TEST_TOTAL = 10;
+    const MIN_LENGTH = 3;
+    const MAX_LENGTH = 6;
+    const UNLOCK_THRESHOLD = 3;
+    const PROGRESS_KEY = 'melody_max_length';
+
+    const STABLE_COUNT = 15;    // ~250ms at 60fps for note lock
+    const POST_LOCK_MS = 400;   // cooldown after locking a note
+    const NOTE_TIMEOUT_MS = 6000; // skip if no note detected in 6s
+    const NOTE_PLAY_MS = 700;   // ms per note during melody playback
+    const EVAL_DELAY_MS = 2000; // delay before auto-advancing in test
+
+    const MAJOR_INTERVALS = [0, 2, 4, 5, 7, 9, 11, 12];
+    const DIFFICULTY_MULT = { easy: 1, medium: 1.5, hard: 2 };
+
+    /* Root notes for key selector */
+    const KEY_ROOTS = ['C4', 'D4', 'E4', 'F4', 'G4'];
+
+    /* ── State ── */
+    const state = {
+      mode: 'practice',
+      difficulty: 'easy',
+      rootNote: 'C4',
+      melodyLength: 3,
+      playerName: 'Player',
+      melody: [],
+      sungNotes: [],
+      noteIndex: 0,
+      phase: 'setup',     // setup | playing | listening | evaluated
+      score: 0,
+      streak: 0,
+      bestStreak: 0,
+      attempts: 0,        // total melodies attempted
+      hits: 0,            // perfect melodies
+      testIndex: 0,
+      passedAtLength: 0,
+      perSkill: {},
+      postLock: false,
+    };
+
+    /* ── Pitch detection state ── */
+    let pitchBuffer = [];
+    let noteTimeout = null;
+
+    /* ── DOM helper ── */
+    const $ = (id) => document.getElementById(id);
+
+    /* ── Utility ── */
+    function delay(ms) {
+      return new Promise(r => setTimeout(r, ms));
+    }
+
+    /* ── Scale & melody generation ── */
+    function buildScale(root) {
+      const rootFreq = noteToFrequency(root);
+      return MAJOR_INTERVALS.map(s => {
+        const freq = rootFreq * Math.pow(2, s / 12);
+        return frequencyToNote(freq).fullName;
+      });
+    }
+
+    function generateMelody() {
+      const scale = buildScale(state.rootNote);
+      const length = state.melodyLength;
+      const melody = [];
+
+      // Use adaptive selection to pick starting scale degree
+      let startIdx = 0;
+      if (scale.length > 1) {
+        const weakNote = selectWeighted(GAME_ID, scale);
+        const si = scale.indexOf(weakNote);
+        if (si >= 0 && si < scale.length) startIdx = si;
+      }
+
+      melody.push(scale[startIdx]);
+      let idx = startIdx;
+
+      const maxStep = state.difficulty === 'easy' ? 1
+                    : state.difficulty === 'medium' ? 2
+                    : 3;
+
+      for (let i = 1; i < length; i++) {
+        let step;
+        if (Math.random() < 0.6) {
+          step = Math.random() < 0.5 ? 1 : -1;
+        } else {
+          step = Math.floor(Math.random() * (maxStep * 2 + 1)) - maxStep;
+          if (step === 0) step = Math.random() < 0.5 ? 1 : -1;
+        }
+        idx = Math.max(0, Math.min(scale.length - 1, idx + step));
+        melody.push(scale[idx]);
+      }
+
+      return melody;
+    }
+
+    /* ── Selectors ── */
+    function populateSelectors() {
+      // Key selector
+      const rootSel = $('select-root');
+      rootSel.innerHTML = '';
+      KEY_ROOTS.forEach(n => {
+        const opt = document.createElement('option');
+        opt.value = n;
+        opt.textContent = `${n} Major`;
+        if (n === 'C4') opt.selected = true;
+        rootSel.appendChild(opt);
+      });
+
+      updateLengthSelector();
+    }
+
+    function updateLengthSelector() {
+      const sel = $('select-length');
+      const currentVal = sel.value;
+      sel.innerHTML = '';
+      const maxLen = getPreference(PROGRESS_KEY, MIN_LENGTH);
+
+      for (let n = MIN_LENGTH; n <= MAX_LENGTH; n++) {
+        const opt = document.createElement('option');
+        opt.value = n;
+        if (n <= maxLen) {
+          opt.textContent = `${n} Notes`;
+        } else {
+          opt.textContent = `${n} Notes (Locked)`;
+          opt.disabled = true;
+        }
+        sel.appendChild(opt);
+      }
+
+      if (currentVal && parseInt(currentVal, 10) <= maxLen) {
+        sel.value = currentVal;
+      }
+    }
+
+    /* ── Note box UI ── */
+    function createNoteBoxes() {
+      const container = $('melody-notes');
+      container.innerHTML = '';
+
+      for (let i = 0; i < state.melody.length; i++) {
+        const box = document.createElement('div');
+        box.className = 'melody-note';
+        box.id = `note-${i}`;
+        box.innerHTML = `
+          <div class="melody-note__number">${i + 1}</div>
+          <div class="melody-note__display" id="note-display-${i}">-</div>
+          <div class="melody-note__sub" id="note-sub-${i}"></div>
+        `;
+        container.appendChild(box);
+      }
+    }
+
+    function setNoteBoxClass(idx, className) {
+      const box = $(`note-${idx}`);
+      if (box) box.className = `melody-note ${className}`;
+    }
+
+    function setNoteDisplay(idx, text, sub) {
+      const d = $(`note-display-${idx}`);
+      const s = $(`note-sub-${idx}`);
+      if (d) d.textContent = text || '-';
+      if (s) s.textContent = sub || '';
+    }
+
+    /* ── Melody playback ── */
+    async function playMelodySequence() {
+      state.phase = 'playing';
+      $('phase-text').textContent = 'Listen to the melody...';
+      $('phase-text').className = 'melody-phase melody-phase--listen';
+      $('btn-replay').hidden = true;
+      $('btn-next').hidden = true;
+      $('melody-live').hidden = true;
+      $('feedback').textContent = '';
+      $('feedback').className = 'feedback';
+      $('unlock-banner').hidden = true;
+
+      for (let i = 0; i < state.melody.length; i++) {
+        setNoteBoxClass(i, 'melody-note--playing');
+        setNoteDisplay(i, state.melody[i]);
+        playNote(state.melody[i], 0.55);
+        await delay(NOTE_PLAY_MS);
+        setNoteBoxClass(i, '');
+      }
+
+      await delay(600);
+      beginListening();
+    }
+
+    async function replayMelody() {
+      $('btn-replay').hidden = true;
+      $('btn-next').hidden = true;
+      state.phase = 'playing';
+      $('phase-text').textContent = 'Listen again...';
+      $('phase-text').className = 'melody-phase melody-phase--listen';
+
+      for (let i = 0; i < state.melody.length; i++) {
+        setNoteBoxClass(i, 'melody-note--playing');
+        setNoteDisplay(i, state.melody[i]);
+        playNote(state.melody[i], 0.55);
+        await delay(NOTE_PLAY_MS);
+        setNoteBoxClass(i, '');
+        setNoteDisplay(i, state.melody[i]);
+      }
+
+      state.phase = 'evaluated';
+      $('phase-text').textContent = 'Review your results';
+      $('phase-text').className = 'melody-phase melody-phase--done';
+      $('btn-replay').hidden = false;
+      if (state.mode === 'practice') $('btn-next').hidden = false;
+    }
+
+    /* ── Listening phase ── */
+    function beginListening() {
+      state.phase = 'listening';
+      state.noteIndex = 0;
+      state.sungNotes = new Array(state.melody.length).fill(null);
+      state.postLock = false;
+      pitchBuffer = [];
+
+      // Reset note boxes to show target as hint
+      for (let i = 0; i < state.melody.length; i++) {
+        setNoteBoxClass(i, '');
+        setNoteDisplay(i, state.melody[i]);
+      }
+
+      $('phase-text').textContent = 'Your turn — sing each note!';
+      $('phase-text').className = 'melody-phase melody-phase--sing';
+      $('melody-live').hidden = false;
+      $('live-note').textContent = '--';
+      $('live-detail').textContent = 'Listening...';
+
+      activateNoteBox(0);
+      startNoteTimeout();
+    }
+
+    function activateNoteBox(idx) {
+      for (let i = 0; i < state.melody.length; i++) {
+        if (i < idx) {
+          // Already processed — keep locked/skipped state
+        } else if (i === idx) {
+          setNoteBoxClass(i, 'melody-note--active');
+          setNoteDisplay(i, state.melody[i], 'Sing!');
+        } else {
+          setNoteBoxClass(i, '');
+          setNoteDisplay(i, state.melody[i]);
+        }
+      }
+    }
+
+    function startNoteTimeout() {
+      clearTimeout(noteTimeout);
+      noteTimeout = setTimeout(() => skipCurrentNote(), NOTE_TIMEOUT_MS);
+    }
+
+    function skipCurrentNote() {
+      if (state.phase !== 'listening') return;
+      state.sungNotes[state.noteIndex] = null;
+      setNoteBoxClass(state.noteIndex, 'melody-note--skipped');
+      setNoteDisplay(state.noteIndex, 'X', 'Skipped');
+      advanceNote();
+    }
+
+    function lockNote(idx, pitchData) {
+      if (state.postLock || state.phase !== 'listening') return;
+      clearTimeout(noteTimeout);
+
+      state.sungNotes[idx] = pitchData;
+      state.postLock = true;
+      pitchBuffer = [];
+
+      setNoteBoxClass(idx, 'melody-note--locked');
+      setNoteDisplay(idx, pitchData.noteInfo.fullName, 'Locked');
+
+      setTimeout(() => {
+        state.postLock = false;
+        advanceNote();
+      }, POST_LOCK_MS);
+    }
+
+    function advanceNote() {
+      state.noteIndex++;
+      if (state.noteIndex >= state.melody.length) {
+        finishListening();
+      } else {
+        activateNoteBox(state.noteIndex);
+        startNoteTimeout();
+      }
+    }
+
+    function finishListening() {
+      clearTimeout(noteTimeout);
+      state.phase = 'evaluated';
+      $('melody-live').hidden = true;
+      evaluate();
+    }
+
+    /* ── Pitch detection callback ── */
+    function onPitch(freq, noteInfo) {
+      if (state.phase !== 'listening') return;
+      if (state.noteIndex >= state.melody.length) return;
+      if (state.postLock) return;
+
+      if (!noteInfo || freq <= 0) {
+        $('live-note').textContent = '--';
+        $('live-detail').textContent = 'Listening...';
+        pitchBuffer = [];
+        return;
+      }
+
+      $('live-note').textContent = noteInfo.fullName;
+      $('live-detail').textContent = `${freq.toFixed(1)} Hz`;
+
+      pitchBuffer.push(noteInfo.fullName);
+      if (pitchBuffer.length > STABLE_COUNT) pitchBuffer.shift();
+
+      if (pitchBuffer.length >= STABLE_COUNT) {
+        const target = pitchBuffer[pitchBuffer.length - 1];
+        if (pitchBuffer.every(n => n === target)) {
+          lockNote(state.noteIndex, { noteInfo, frequency: freq });
+        }
+      }
+    }
+
+    /* ── Evaluation ── */
+    function semitoneDist(note1, note2) {
+      try {
+        const f1 = noteToFrequency(note1);
+        const f2 = noteToFrequency(note2);
+        return Math.round(Math.abs(12 * Math.log2(f1 / f2)));
+      } catch {
+        return 999;
+      }
+    }
+
+    function evaluate() {
+      let melodyScore = 0;
+      let correctCount = 0;
+
+      for (let i = 0; i < state.melody.length; i++) {
+        const target = state.melody[i];
+        const sung = state.sungNotes[i];
+
+        if (!state.perSkill[target]) state.perSkill[target] = { attempts: 0, hits: 0 };
+        state.perSkill[target].attempts++;
+
+        if (!sung) {
+          setNoteBoxClass(i, 'melody-note--wrong');
+          setNoteDisplay(i, 'X', `Was: ${target}`);
+          recordAttempt(GAME_ID, target, { hit: false });
+          continue;
+        }
+
+        const sungName = sung.noteInfo.fullName;
+        const dist = semitoneDist(target, sungName);
+
+        if (dist === 0) {
+          correctCount++;
+          melodyScore += 100;
+          state.perSkill[target].hits++;
+          setNoteBoxClass(i, 'melody-note--correct');
+          setNoteDisplay(i, sungName, target);
+          recordAttempt(GAME_ID, target, { hit: true });
+        } else if (dist === 1) {
+          melodyScore += 25;
+          setNoteBoxClass(i, 'melody-note--close');
+          setNoteDisplay(i, sungName, `Was: ${target}`);
+          recordAttempt(GAME_ID, target, { hit: false });
+        } else {
+          setNoteBoxClass(i, 'melody-note--wrong');
+          setNoteDisplay(i, sungName, `Was: ${target}`);
+          recordAttempt(GAME_ID, target, { hit: false });
+        }
+      }
+
+      const perfect = correctCount === state.melody.length;
+
+      // Perfect melody bonus
+      if (perfect) {
+        melodyScore += 50 * state.melody.length;
+        state.streak++;
+        if (state.streak > state.bestStreak) state.bestStreak = state.streak;
+      } else {
+        state.streak = 0;
+      }
+
+      // Streak bonus
+      if (state.streak >= 5) melodyScore += 100;
+      else if (state.streak >= 3) melodyScore += 50;
+
+      // Difficulty multiplier
+      melodyScore = Math.round(melodyScore * DIFFICULTY_MULT[state.difficulty]);
+
+      state.score += melodyScore;
+      state.attempts++;
+      if (perfect) state.hits++;
+
+      // Progression check
+      let unlocked = false;
+      if (perfect) {
+        state.passedAtLength++;
+        if (state.passedAtLength >= UNLOCK_THRESHOLD) {
+          const maxLen = getPreference(PROGRESS_KEY, MIN_LENGTH);
+          if (state.melodyLength >= maxLen && state.melodyLength < MAX_LENGTH) {
+            savePreference(PROGRESS_KEY, state.melodyLength + 1);
+            unlocked = true;
+            updateLengthSelector();
+          }
+        }
+      } else {
+        state.passedAtLength = 0;
+      }
+
+      updateStats();
+
+      // Phase text
+      if (perfect) {
+        $('phase-text').textContent = `Perfect! All ${state.melody.length} notes correct`;
+      } else {
+        $('phase-text').textContent = `${correctCount}/${state.melody.length} notes correct`;
+      }
+      $('phase-text').className = 'melody-phase melody-phase--done';
+
+      // Feedback
+      if (unlocked) {
+        $('unlock-banner').textContent = `Unlocked ${state.melodyLength + 1}-note melodies!`;
+        $('unlock-banner').className = 'unlock-banner animate-pop';
+        $('unlock-banner').hidden = false;
+      }
+
+      if (perfect) {
+        $('feedback').textContent = `+${melodyScore} points`;
+        $('feedback').className = 'feedback feedback--success animate-pop';
+      } else if (correctCount > 0) {
+        $('feedback').textContent = `${correctCount}/${state.melody.length} correct — +${melodyScore}`;
+        $('feedback').className = 'feedback feedback--partial';
+      } else {
+        $('feedback').textContent = 'Keep trying — listen and match each note!';
+        $('feedback').className = 'feedback feedback--miss';
+      }
+
+      // Buttons
+      $('btn-replay').hidden = false;
+      if (state.mode === 'practice') {
+        $('btn-next').hidden = false;
+      } else {
+        state.testIndex++;
+        if (state.testIndex >= TEST_TOTAL) {
+          setTimeout(() => showResults(), EVAL_DELAY_MS);
+        } else {
+          setTimeout(() => startNextMelody(), EVAL_DELAY_MS);
+        }
+      }
+    }
+
+    /* ── Stats ── */
+    function updateStats() {
+      $('stat-score').textContent = state.score;
+      $('stat-streak').textContent = state.streak;
+      const acc = state.attempts > 0 ? Math.round(state.hits / state.attempts * 100) : 0;
+      $('stat-accuracy').textContent = `${acc}%`;
+      if (state.mode === 'test') {
+        $('stat-question').textContent = `${Math.min(state.testIndex + 1, TEST_TOTAL)}/${TEST_TOTAL}`;
+      }
+    }
+
+    /* ── Leaderboard ── */
+    function refreshLeaderboard(id) {
+      renderLeaderboard($(id), GAME_ID, 5);
+    }
+
+    function isTopFive(score) {
+      const board = getLeaderboard(GAME_ID, 5);
+      return board.length < 5 || score > board[board.length - 1].score;
+    }
+
+    /* ── Screens ── */
+    function showScreen(name) {
+      ['setup', 'game', 'results'].forEach(s => {
+        $(`screen-${s}`).hidden = s !== name;
+      });
+    }
+
+    /* ── Start next melody ── */
+    async function startNextMelody() {
+      state.melody = generateMelody();
+      state.sungNotes = [];
+      state.noteIndex = 0;
+      state.postLock = false;
+      pitchBuffer = [];
+
+      createNoteBoxes();
+      $('feedback').textContent = '';
+      $('feedback').className = 'feedback';
+      $('unlock-banner').hidden = true;
+      updateStats();
+
+      await playMelodySequence();
+    }
+
+    /* ── Start game ── */
+    async function handleStart() {
+      state.mode = $('select-mode').value;
+      state.difficulty = $('select-difficulty').value;
+      state.rootNote = $('select-root').value;
+      state.melodyLength = parseInt($('select-length').value, 10);
+      state.playerName = $('input-name').value.trim() || 'Player';
+      state.score = 0;
+      state.streak = 0;
+      state.bestStreak = 0;
+      state.attempts = 0;
+      state.hits = 0;
+      state.testIndex = 0;
+      state.passedAtLength = 0;
+      state.perSkill = {};
+
+      try {
+        await initAudio();
+      } catch (err) {
+        $('feedback').textContent = 'Audio init failed: ' + err.message;
+        return;
+      }
+
+      // Start pitch detection (requests mic permission once)
+      try {
+        await startPitchDetection(onPitch);
+      } catch (err) {
+        $('feedback').textContent = 'Microphone access required: ' + err.message;
+        $('feedback').className = 'feedback feedback--miss';
+        return;
+      }
+
+      $('stat-q-wrap').hidden = state.mode !== 'test';
+      showScreen('game');
+      startNextMelody();
+    }
+
+    /* ── Results ── */
+    async function showResults() {
+      stopPitchDetection();
+
+      const accuracy = state.attempts > 0 ? Math.round(state.hits / state.attempts * 100) : 0;
+
+      $('result-score').textContent = state.score;
+      $('result-perfect').textContent = `${state.hits}/${TEST_TOTAL}`;
+      $('result-streak').textContent = state.bestStreak;
+
+      const sessionData = {
+        mode: state.mode,
+        difficulty: state.difficulty,
+        melodyLength: state.melodyLength,
+        score: state.score,
+        accuracy,
+        bestStreak: state.bestStreak,
+        skills: state.perSkill,
+      };
+      recordSession(GAME_ID, sessionData);
+
+      if (isTopFive(state.score)) {
+        $('name-entry-wrap').hidden = false;
+        $('result-name').value = state.playerName;
+      } else {
+        $('name-entry-wrap').hidden = true;
+        saveScore(GAME_ID, state.playerName, state.score, {
+          difficulty: state.difficulty,
+          melodyLength: state.melodyLength,
+          bestStreak: state.bestStreak,
+          accuracy,
+        });
+      }
+
+      refreshLeaderboard('leaderboard-results');
+      showScreen('results');
+
+      // AI feedback (non-blocking)
+      if (isAIAvailable()) {
+        $('ai-feedback-wrap').hidden = false;
+        $('ai-feedback').textContent = 'Getting feedback from your tutor...';
+        $('ai-feedback').className = 'ai-feedback ai-feedback--loading';
+
+        const feedback = await getSessionFeedback(GAME_ID, sessionData);
+        if (feedback) {
+          $('ai-feedback').innerHTML = `<div class="ai-feedback__title">Your Tutor Says:</div>${feedback}`;
+          $('ai-feedback').className = 'ai-feedback animate-fade-in';
+        } else {
+          $('ai-feedback-wrap').hidden = true;
+        }
+      } else {
+        $('ai-feedback-wrap').hidden = true;
+      }
+    }
+
+    function handleSaveScore() {
+      const name = $('result-name').value.trim() || 'Player';
+      const accuracy = state.attempts > 0 ? Math.round(state.hits / state.attempts * 100) : 0;
+      saveScore(GAME_ID, name, state.score, {
+        difficulty: state.difficulty,
+        melodyLength: state.melodyLength,
+        bestStreak: state.bestStreak,
+        accuracy,
+      });
+      $('name-entry-wrap').hidden = true;
+      refreshLeaderboard('leaderboard-results');
+    }
+
+    /* ── Quit ── */
+    function handleQuit() {
+      clearTimeout(noteTimeout);
+      stopPitchDetection();
+      state.phase = 'setup';
+      showScreen('setup');
+      refreshLeaderboard('leaderboard-setup');
+    }
+
+    /* ── Keyboard shortcuts ── */
+    function handleKeyboard(e) {
+      if ($('screen-game').hidden) return;
+
+      if (e.code === 'Space') {
+        e.preventDefault();
+        if (state.phase === 'listening') {
+          skipCurrentNote();
+        }
+        return;
+      }
+
+      if (e.code === 'Enter') {
+        e.preventDefault();
+        if (state.phase === 'evaluated' && state.mode === 'practice') {
+          startNextMelody();
+        }
+        return;
+      }
+
+      // R = replay melody after evaluation
+      if (e.code === 'KeyR' && state.phase === 'evaluated') {
+        e.preventDefault();
+        replayMelody();
+      }
+    }
+
+    /* ── Event binding ── */
+    function bindEvents() {
+      $('btn-start').addEventListener('click', handleStart);
+      $('btn-replay').addEventListener('click', () => {
+        if (state.phase === 'evaluated') replayMelody();
+      });
+      $('btn-next').addEventListener('click', () => startNextMelody());
+      $('btn-quit').addEventListener('click', handleQuit);
+      $('btn-again').addEventListener('click', () => {
+        showScreen('setup');
+        refreshLeaderboard('leaderboard-setup');
+      });
+      $('btn-save-score').addEventListener('click', handleSaveScore);
+
+      document.addEventListener('keydown', handleKeyboard);
+    }
+
+    /* ── Init ── */
+    function init() {
+      populateSelectors();
+      refreshLeaderboard('leaderboard-setup');
+      bindEvents();
+    }
+
+    init();
+  </script>
+</body>
+</html>

@@ -24,6 +24,8 @@ music-theory-games/
 │   └── styles.css         # Game-specific styles
 ├── chords/                # Chord identification game
 │   └── index.html         # Game page (inline CSS/JS)
+├── melody/                # Melody echo game
+│   └── index.html         # Game page (inline CSS/JS)
 └── rhythm/                # Rhythm training game
     ├── index.html         # Game page
     ├── rhythm.js          # Game logic — EKG metronome, clap detection, scoring
@@ -238,6 +240,82 @@ SETUP → PLAYING → ANSWER_GIVEN → (next question or RESULTS)
 - `handleAnswer(selected)` — Compare to current chord, update score/streak, record attempt with ai.js, trigger feedback.
 - `applyInversion(intervals, inversion)` — Shift lower notes up an octave for 1st/2nd inversions.
 - `loadNextQuestion()` — Reset UI, generate and auto-play next chord.
+- `showResults()` — Calculate final score, save to leaderboard, request AI feedback.
+
+## Melody — Melody Echo Game
+
+### Game Modes
+
+1. **Practice Mode** — Listen to a melody, sing it back note by note. Immediate per-note feedback with color-coded results. Replay melody anytime. No time pressure — "Next Melody" button to advance.
+2. **Test Mode** — 10 melodies. Score tallied at end. Results saved to leaderboard. Optional AI tutor feedback.
+
+### Difficulty Levels
+
+| Level  | Interval Range | Multiplier |
+|--------|---------------|------------|
+| Easy   | Stepwise only (adjacent scale degrees) | 1× |
+| Medium | Steps + 3rds (up to 2 scale degrees) | 1.5× |
+| Hard   | Steps + 3rds + leaps (up to 3 scale degrees) | 2× |
+
+### Progressive Melody Length
+
+Melodies start at 3 notes and can be unlocked up to 6 notes:
+
+- **3 notes** — Always available
+- **4 notes** — Unlocked after 3 consecutive perfect melodies at 3 notes
+- **5 notes** — Unlocked after 3 consecutive perfect at 4 notes
+- **6 notes** — Unlocked after 3 consecutive perfect at 5 notes
+
+Progression is saved via `shared/progress.js` preferences (`melody_max_length` key).
+
+### Features
+
+- **Scale-based melody generation** — Melodies use the major scale built from the selected key root. Notes move stepwise with occasional larger intervals based on difficulty.
+- **Adaptive starting note** — Uses `selectWeighted()` from `shared/ai.js` to start melodies on the user's weakest scale degree, naturally including problem notes.
+- **Pitch stability detection** — Notes are locked when the same semitone is detected for 15 consecutive frames (~250ms). Prevents flicker from noisy pitch readings.
+- **Per-note evaluation** — Each sung note is compared to the target: correct (same semitone, green), close (±1 semitone, yellow), wrong (red), or skipped.
+- **Note timeout** — If no stable pitch is detected within 6 seconds, the note is automatically skipped.
+- **Visual note boxes** — Row of boxes showing target notes. Boxes transition through states: playing (purple glow), active (gold pulse), locked (light purple), correct/close/wrong (green/yellow/red).
+- **Live pitch display** — Real-time display of detected pitch and frequency below the note boxes during singing.
+- **Melody replay** — After evaluation, replay the target melody to compare. Press R or click "Replay Melody".
+- **AI tutor feedback** — After test mode, calls `getSessionFeedback()` for encouraging post-session feedback.
+- **Scoring** — Per note: 100 correct, 25 close, 0 wrong. Perfect melody bonus: +50 × length. Streak bonus: +50 at 3+, +100 at 5+. All multiplied by difficulty.
+- **Leaderboard panel** — Shows top scores via `shared/progress.js`. Game identifier: `'melody'`.
+- **Streak tracking** — Consecutive perfect melodies (all notes correct).
+- **Keyboard shortcuts** — Space to skip note during listening, Enter for next melody (practice), R to replay.
+
+### Note Segmentation Algorithm
+
+```
+1. startPitchDetection() runs continuously from game start
+2. onPitch callback receives (frequency, noteInfo) per animation frame
+3. Track last 15 readings in pitchBuffer
+4. If all 15 are the same note → lock it in as the current note
+5. 400ms post-lock cooldown before accepting next note
+6. 6-second timeout per note → auto-skip if no stable pitch
+7. After all notes locked/skipped → evaluate
+```
+
+### melody/index.html Structure
+
+Single HTML file with inline `<style>` and `<script type="module">`. Game logic is a state machine:
+
+```
+SETUP → PLAYING (melody playback) → LISTENING (user sings) → EVALUATED → (next or RESULTS)
+```
+
+**State management** is a plain object with direct DOM manipulation. No virtual DOM.
+
+**Key internal functions:**
+
+- `buildScale(root)` — Build major scale from root note using interval formula [0,2,4,5,7,9,11,12].
+- `generateMelody()` — Create melody by walking through the scale with random steps bounded by difficulty. Uses adaptive selection for starting note.
+- `playMelodySequence()` — Play melody with sequential note box highlighting via async/await + delay.
+- `beginListening()` — Start listening phase, activate first note box, begin timeout.
+- `onPitch(freq, noteInfo)` — Pitch detection callback. Maintains stability buffer, triggers lockNote when stable.
+- `lockNote(idx, pitchData)` — Record detected note, update UI, start post-lock cooldown.
+- `evaluate()` — Compare all sung notes to targets, calculate score, check progression, record with ai.js.
+- `checkProgression()` — Track consecutive perfects, unlock next melody length at threshold.
 - `showResults()` — Calculate final score, save to leaderboard, request AI feedback.
 
 ## Rhythm — Rhythm Training Game
