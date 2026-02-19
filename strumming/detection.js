@@ -15,7 +15,8 @@
 /* ---------------------------------------------------------- */
 
 const RMS_THRESHOLD = 0.04;
-const SPECTRAL_FLUX_THRESHOLD = 0.15;
+const NOISE_FLOOR_RMS = 0.01;
+const SPECTRAL_FLUX_THRESHOLD = 0.5;
 const MIN_INTER_ONSET_MS = 80;
 const FFT_SIZE = 2048;
 const LATENCY_COMPENSATION_MS = 0;
@@ -160,10 +161,16 @@ function detectLoop() {
   const fluxOnset = flux > SPECTRAL_FLUX_THRESHOLD;
 
   // --- Combined decision ---
-  // Fire if either signal triggers, with cooldown
-  if ((rmsOnset || fluxOnset) && (now - d.lastOnsetTime > MIN_INTER_ONSET_MS)) {
+  // RMS onset alone is sufficient. Spectral flux only counts when there is
+  // actual audio energy (rms > NOISE_FLOOR_RMS) to avoid false positives from
+  // dB noise-floor fluctuations in a silent room.
+  const onset = rmsOnset || (fluxOnset && rms > NOISE_FLOOR_RMS);
+
+  if (onset && (now - d.lastOnsetTime > MIN_INTER_ONSET_MS)) {
     d.lastOnsetTime = now;
     const onsetTime = now - LATENCY_COMPENSATION_MS;
+
+    console.log(`[detection] onset — RMS: ${rms.toFixed(4)}, flux: ${flux.toFixed(4)}, trigger: ${rmsOnset ? 'rms' : 'flux'}`);
 
     if (d.onOnset) {
       d.onOnset(onsetTime);

@@ -159,6 +159,7 @@
     .strum-game {
       max-width: 900px;
       margin: 0 auto;
+      position: relative;
     }
 
     /* --- Timeline Canvas --- */
@@ -313,6 +314,75 @@
       color: var(--color-text-light);
       font-size: var(--font-size-sm);
       margin-bottom: var(--space-md);
+    }
+
+    /* --- Practice Summary Overlay (shown on game screen after stop) --- */
+    .strum-practice-summary {
+      position: absolute;
+      inset: 0;
+      background: rgba(248, 249, 253, 0.96);
+      border-radius: var(--radius-lg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+      animation: fade-in 0.25s ease-out;
+    }
+
+    .strum-practice-summary__inner {
+      max-width: 480px;
+      width: 100%;
+      padding: var(--space-xl);
+      text-align: center;
+    }
+
+    .strum-practice-summary__title {
+      font-size: var(--font-size-xl);
+      font-weight: var(--font-weight-extra-bold);
+      color: var(--color-primary);
+      margin-bottom: var(--space-lg);
+    }
+
+    .strum-practice-summary__stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-md);
+      margin-bottom: var(--space-lg);
+    }
+
+    .strum-practice-summary__stat {
+      background: var(--color-bg-card);
+      border-radius: var(--radius-md);
+      padding: var(--space-md);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .strum-practice-summary__stat-value {
+      font-size: var(--font-size-2xl);
+      font-weight: var(--font-weight-extra-bold);
+      color: var(--color-primary);
+      line-height: 1;
+    }
+
+    .strum-practice-summary__stat-label {
+      font-size: var(--font-size-xs);
+      color: var(--color-text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-top: var(--space-xs);
+    }
+
+    .strum-practice-summary__timing {
+      font-size: var(--font-size-sm);
+      color: var(--color-text-light);
+      margin-bottom: var(--space-lg);
+    }
+
+    .strum-practice-summary__buttons {
+      display: flex;
+      justify-content: center;
+      gap: var(--space-md);
+      flex-wrap: wrap;
     }
 
     /* --- Results Screen --- */
@@ -473,6 +543,17 @@
             </button>
             <span id="tap-feedback" class="strum-tap-feedback">Tap the button or press space 4+ times to set tempo</span>
           </div>
+
+          <!-- Audible Click Option -->
+          <div class="form-group" style="grid-column: 1 / -1;">
+            <label class="form-label" style="display: flex; align-items: center; gap: var(--space-sm); cursor: pointer;">
+              <input type="checkbox" id="gameplay-click" aria-label="Audible click during gameplay">
+              Audible click during gameplay
+              <span style="font-size: var(--font-size-xs); color: var(--color-text-muted);">
+                (off by default — mic can pick up the click)
+              </span>
+            </label>
+          </div>
         </div>
 
         <div class="text-center mt-xl">
@@ -555,6 +636,40 @@
             Stop
           </button>
         </div>
+
+        <!-- Practice Summary Overlay (shown after stopping in practice mode) -->
+        <div id="practice-summary" class="strum-practice-summary" hidden>
+          <div class="strum-practice-summary__inner">
+            <div class="strum-practice-summary__title">Practice Summary</div>
+            <div class="strum-practice-summary__stats">
+              <div class="strum-practice-summary__stat">
+                <div class="strum-practice-summary__stat-value" id="psum-accuracy">—</div>
+                <div class="strum-practice-summary__stat-label">Accuracy</div>
+              </div>
+              <div class="strum-practice-summary__stat">
+                <div class="strum-practice-summary__stat-value" id="psum-streak">0</div>
+                <div class="strum-practice-summary__stat-label">Best Streak</div>
+              </div>
+              <div class="strum-practice-summary__stat">
+                <div class="strum-practice-summary__stat-value" id="psum-hits">0/0</div>
+                <div class="strum-practice-summary__stat-label">Strums Hit</div>
+              </div>
+              <div class="strum-practice-summary__stat">
+                <div class="strum-practice-summary__stat-value" id="psum-measures">0</div>
+                <div class="strum-practice-summary__stat-label">Measures Played</div>
+              </div>
+            </div>
+            <div class="strum-practice-summary__timing" id="psum-timing"></div>
+            <div class="strum-practice-summary__buttons">
+              <button id="btn-psum-restart" class="btn btn--primary btn--large">
+                Play Again
+              </button>
+              <button id="btn-psum-setup" class="btn btn--secondary btn--large">
+                Back to Setup
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -605,9 +720,9 @@
           <button id="btn-play-again" class="btn btn--primary btn--large">
             Play Again
           </button>
-          <a href="../index.html" class="btn btn--secondary btn--large" style="margin-left: var(--space-md);">
-            Home
-          </a>
+          <button id="btn-results-setup" class="btn btn--secondary btn--large" style="margin-left: var(--space-md);">
+            Back to Setup
+          </button>
         </div>
       </div>
     </section>
@@ -639,7 +754,6 @@
     const STREAK_BONUS_POINTS = 1;
 
     const DIFFICULTY_LOOKAHEAD_MEASURES = { easy: 2, medium: 1, hard: 0 };
-    const METRONOME_AUDIBLE = { easy: true, medium: true, hard: false };
 
     const CLICK_FREQ_DOWNBEAT = 1000;
     const CLICK_FREQ_BEAT = 800;
@@ -676,7 +790,7 @@
 
       // Audio
       audioCtx: null,
-      metronomeAudible: true,
+      gameplayClickEnabled: false,
 
       // Timing
       startTime: 0,            // performance.now() when game starts (after count-in)
@@ -791,7 +905,12 @@
       });
 
       // Results
-      $('btn-play-again').addEventListener('click', () => showScreen('setup'));
+      $('btn-play-again').addEventListener('click', restartGame);
+      $('btn-results-setup').addEventListener('click', () => showScreen('setup'));
+
+      // Practice summary overlay
+      $('btn-psum-restart').addEventListener('click', restartGame);
+      $('btn-psum-setup').addEventListener('click', () => showScreen('setup'));
 
       // Keyboard
       document.addEventListener('keydown', handleKeydown);
@@ -857,6 +976,9 @@
         el.hidden = key !== name;
       });
 
+      // Always hide the practice summary overlay when switching screens
+      $('practice-summary').hidden = true;
+
       if (name === 'setup') {
         renderLeaderboard($('setup-leaderboard'), GAME_ID, 10);
       }
@@ -871,7 +993,7 @@
       state.mode = $('game-mode').value;
       state.difficulty = $('difficulty').value;
       state.pattern = getPatternById($('pattern-select').value);
-      state.metronomeAudible = METRONOME_AUDIBLE[state.difficulty];
+      state.gameplayClickEnabled = $('gameplay-click').checked;
 
       if (!state.pattern) return;
 
@@ -1051,8 +1173,8 @@
         while (nextBeatTime <= now + 50) { // look ahead 50ms
           const isDownbeat = (beatCount % 4) === 0;
 
-          // Schedule audio
-          if (state.metronomeAudible) {
+          // Schedule audio — only if the user opted in to audible clicks during gameplay
+          if (state.gameplayClickEnabled) {
             const audioTime = state.audioCtx.currentTime + Math.max(0, (nextBeatTime - now) / 1000);
             scheduleClick(audioTime, isDownbeat);
           }
@@ -1219,11 +1341,9 @@
 
         recordAttempt(GAME_ID, state.pattern.name, { hit: true, responseMs: bestDelta });
       } else {
-        // Miss — strum at wrong time or extra strum
-        state.streak = 0;
+        // Extra strum — at wrong time or no nearby expected strum.
+        // Does NOT reset streak; only missed expected strum slots reset streak.
         state.results.push({ expected: null, actual: time, deltaMs: null, grade: 'extra' });
-
-        recordAttempt(GAME_ID, state.pattern.name, { hit: false });
       }
 
       updateStats();
@@ -1232,6 +1352,7 @@
     function checkMissedStrums() {
       const now = performance.now();
       const tolerance = TOLERANCE[state.difficulty];
+      let changed = false;
 
       for (const exp of state.expectedStrums) {
         if (exp.matched || exp.grade === 'miss') continue;
@@ -1240,18 +1361,30 @@
           state.results.push({ expected: exp.time, actual: null, deltaMs: null, grade: 'miss' });
           state.streak = 0;
           state.loopTotal++;
+          changed = true;
 
           recordAttempt(GAME_ID, state.pattern.name, { hit: false });
         }
+      }
+
+      if (changed) {
+        updateStats();
       }
     }
 
     function updateStats() {
       $('stat-streak').textContent = state.streak;
 
-      const scored = state.results.filter((r) => r.grade !== 'extra');
-      const hits = scored.filter((r) => r.grade === 'perfect' || r.grade === 'hit').length;
-      const total = scored.length;
+      // Accuracy = correct strum slots / total strum slots whose window has passed.
+      // A strum's evaluation window is fully closed once now > exp.time + tolerance*2.
+      // This counts every D/U slot that should have been played by now, whether or
+      // not checkMissedStrums has explicitly marked it yet. Rests are never included.
+      const now = performance.now();
+      const tolerance = TOLERANCE[state.difficulty];
+      const cutoff = now - tolerance * 2;
+      const due = state.expectedStrums.filter((e) => e.time < cutoff);
+      const hits = due.filter((e) => e.matched).length;
+      const total = due.length;
       if (total > 0) {
         $('stat-accuracy').textContent = Math.round((hits / total) * 100) + '%';
       }
@@ -1570,7 +1703,7 @@
         endGame();
       } else {
         stopGame();
-        showScreen('setup');
+        showPracticeSummary();
       }
     }
 
@@ -1582,21 +1715,68 @@
       stopDetection();
     }
 
+    function showPracticeSummary() {
+      const now = performance.now();
+      const tolerance = TOLERANCE[state.difficulty];
+      const cutoff = now - tolerance * 2;
+
+      // Count all expected strum slots whose window has fully passed
+      const due = state.expectedStrums.filter((e) => e.time < cutoff);
+      const hits = due.filter((e) => e.matched).length;
+      const total = due.length;
+      const accuracy = total > 0 ? Math.round((hits / total) * 100) : 0;
+
+      $('psum-accuracy').textContent = total > 0 ? accuracy + '%' : '—';
+      $('psum-streak').textContent = state.bestStreak;
+      $('psum-hits').textContent = `${hits}/${total}`;
+      $('psum-measures').textContent = state.currentMeasure + 1;
+
+      // Timing tendency from history
+      const deltas = state.results
+        .filter((r) => r.deltaMs !== null && r.grade !== 'extra')
+        .map((r) => r.deltaMs);
+
+      if (deltas.length > 0) {
+        const avg = deltas.reduce((s, v) => s + v, 0) / deltas.length;
+        const absAvg = Math.abs(avg);
+        let tendency;
+        if (absAvg < 5) tendency = 'Right on the beat!';
+        else if (avg < 0) tendency = `Slightly early (avg ${Math.round(absAvg)}ms)`;
+        else tendency = `Slightly late (avg ${Math.round(absAvg)}ms)`;
+        $('psum-timing').textContent = `Timing tendency: ${tendency}`;
+      } else {
+        $('psum-timing').textContent = '';
+      }
+
+      // Record session with ai.js
+      recordSession(GAME_ID, {
+        mode: 'practice',
+        difficulty: state.difficulty,
+        score: state.score,
+        accuracy,
+        pattern: state.pattern.name,
+        bpm: state.bpm,
+        bestStreak: state.bestStreak,
+      });
+
+      $('practice-summary').hidden = false;
+    }
+
+    function restartGame() {
+      // Hide practice summary overlay if visible
+      $('practice-summary').hidden = true;
+      // Re-run start with current settings (form values are unchanged)
+      handleStart();
+    }
+
     async function endGame() {
       stopGame();
 
-      // Final missed strum check
-      for (const exp of state.expectedStrums) {
-        if (!exp.matched && exp.grade !== 'miss' && exp.measure < TEST_MEASURES) {
-          exp.grade = 'miss';
-          state.results.push({ expected: exp.time, actual: null, deltaMs: null, grade: 'miss' });
-        }
-      }
-
-      // Calculate results
-      const scored = state.results.filter((r) => r.grade !== 'extra');
-      const hits = scored.filter((r) => r.grade === 'perfect' || r.grade === 'hit').length;
-      const total = scored.length;
+      // Calculate results from all expected strum slots in the test (D/U only, never rests).
+      // Any unmatched slot is a miss — no need to check explicit grade.
+      const expectedInTest = state.expectedStrums.filter((e) => e.measure < TEST_MEASURES);
+      const hits = expectedInTest.filter((e) => e.matched).length;
+      const total = expectedInTest.length;
       const accuracy = total > 0 ? Math.round((hits / total) * 100) : 0;
 
       // Show results
