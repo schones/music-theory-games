@@ -14,9 +14,9 @@
 /*  Constants (tunable)                                       */
 /* ---------------------------------------------------------- */
 
-const RMS_THRESHOLD = 0.04;
-const SPECTRAL_FLUX_THRESHOLD = 0.15;
-const MIN_INTER_ONSET_MS = 80;
+let rmsThreshold = 0.08;
+let spectralFluxThreshold = 0.25;
+const MIN_INTER_ONSET_MS = 120;
 const FFT_SIZE = 2048;
 const LATENCY_COMPENSATION_MS = 0;
 
@@ -88,6 +88,7 @@ export async function startDetection(audioCtx, onOnset) {
     prevFreqBuffer,
     lastOnsetTime: 0,
     prevRMS: 0,
+    suppressUntil: 0,
     running: true,
     animFrameId: 0,
     onOnset,
@@ -130,6 +131,44 @@ export function isDetecting() {
   return detector !== null && detector.running;
 }
 
+/**
+ * Suppress onset detection for a duration. Call this right after playing
+ * a metronome click so the click sound isn't picked up as a strum.
+ *
+ * @param {number} ms - Duration in milliseconds to suppress (default 50)
+ */
+export function suppressFor(ms = 50) {
+  if (!detector) return;
+  const until = performance.now() + ms;
+  if (until > detector.suppressUntil) {
+    detector.suppressUntil = until;
+  }
+}
+
+/**
+ * Set detection sensitivity (0–100). Higher = more sensitive.
+ * Adjusts the RMS and spectral flux thresholds.
+ *   0   → very insensitive (thresholds high, ignores most input)
+ *   50  → default
+ *   100 → very sensitive (thresholds low, triggers easily)
+ *
+ * @param {number} value - Sensitivity 0–100
+ */
+export function setSensitivity(value) {
+  const v = Math.max(0, Math.min(100, value));
+  // Map 0–100 to threshold multiplier via piecewise linear interpolation:
+  //   0   → 3.0× (high threshold, insensitive)
+  //   50  → 1.0× (default)
+  //   100 → 0.25× (low threshold, very sensitive)
+  const t = v / 100;
+  const m = t <= 0.5
+    ? 3.0 - t * 2 * (3.0 - 1.0)   // 3.0 → 1.0 over 0–50
+    : 1.0 - (t - 0.5) * 2 * (1.0 - 0.25); // 1.0 → 0.25 over 50–100
+
+  rmsThreshold = 0.08 * m;
+  spectralFluxThreshold = 0.25 * m;
+}
+
 /* ---------------------------------------------------------- */
 /*  Internal Detection Loop                                   */
 /* ---------------------------------------------------------- */
@@ -140,12 +179,24 @@ function detectLoop() {
   const d = detector;
   const now = performance.now();
 
+  // --- Check suppression gate (metronome click blanking) ---
+  if (now < d.suppressUntil) {
+    // During suppression window, still update prevRMS/prevFreq to avoid
+    // a stale-data spike when the gate lifts
+    d.analyser.getFloatTimeDomainData(d.timeDomainBuffer);
+    d.prevRMS = computeRMS(d.timeDomainBuffer);
+    d.analyser.getFloatFrequencyData(d.freqBuffer);
+    d.prevFreqBuffer.set(d.freqBuffer);
+    d.animFrameId = requestAnimationFrame(detectLoop);
+    return;
+  }
+
   // --- Signal 1: RMS amplitude ---
   d.analyser.getFloatTimeDomainData(d.timeDomainBuffer);
   const rms = computeRMS(d.timeDomainBuffer);
 
   let rmsOnset = false;
-  if (rms > RMS_THRESHOLD && d.prevRMS <= RMS_THRESHOLD) {
+  if (rms > rmsThreshold && d.prevRMS <= rmsThreshold) {
     rmsOnset = true;
   }
   d.prevRMS = rms;
@@ -157,7 +208,7 @@ function detectLoop() {
   // Copy current spectrum to previous for next frame
   d.prevFreqBuffer.set(d.freqBuffer);
 
-  const fluxOnset = flux > SPECTRAL_FLUX_THRESHOLD;
+  const fluxOnset = flux > spectralFluxThreshold;
 
   // --- Combined decision ---
   // Fire if either signal triggers, with cooldown
