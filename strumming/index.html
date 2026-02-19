@@ -1,0 +1,1752 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Guitar Strumming — Music Theory Games</title>
+  <link rel="stylesheet" href="../shared/styles.css">
+  <style>
+    /* ============================================================
+       Guitar Strumming Game — Styles
+       ============================================================ */
+
+    .strum-screen {
+      padding: var(--space-xl) 0 var(--space-3xl);
+      animation: fade-in 0.3s ease-out;
+    }
+
+    /* --- Setup Screen --- */
+    .strum-setup {
+      max-width: 640px;
+      margin: 0 auto;
+    }
+
+    .strum-setup__grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-md);
+    }
+
+    .strum-setup__grid .form-group:first-child {
+      grid-column: 1 / -1;
+    }
+
+    .strum-pattern-preview {
+      grid-column: 1 / -1;
+      background: var(--color-bg);
+      border-radius: var(--radius-md);
+      padding: var(--space-md);
+      text-align: center;
+    }
+
+    .strum-pattern-preview__grid {
+      display: flex;
+      justify-content: center;
+      gap: var(--space-sm);
+      margin-top: var(--space-sm);
+      font-family: var(--font-family-mono);
+      font-size: var(--font-size-xl);
+      font-weight: var(--font-weight-bold);
+    }
+
+    .strum-pattern-preview__slot {
+      width: 2.2em;
+      height: 2.2em;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: var(--radius-sm);
+      background: var(--color-bg-card);
+      border: 2px solid var(--color-border);
+    }
+
+    .strum-pattern-preview__slot--D {
+      color: var(--color-primary);
+      border-color: var(--color-primary-light);
+    }
+
+    .strum-pattern-preview__slot--U {
+      color: var(--color-secondary);
+      border-color: var(--color-secondary-light);
+    }
+
+    .strum-pattern-preview__slot--rest {
+      color: var(--color-text-muted);
+    }
+
+    .strum-pattern-preview__tips {
+      margin-top: var(--space-sm);
+      font-size: var(--font-size-sm);
+      color: var(--color-text-light);
+      font-style: italic;
+    }
+
+    /* --- Tempo Row --- */
+    .strum-tempo-row {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      gap: var(--space-md);
+      flex-wrap: wrap;
+    }
+
+    .strum-tempo-row .form-label {
+      flex-basis: 100%;
+    }
+
+    .strum-bpm-slider {
+      flex: 1;
+      min-width: 120px;
+      height: 6px;
+      -webkit-appearance: none;
+      appearance: none;
+      background: var(--color-border);
+      border-radius: var(--radius-full);
+      outline: none;
+    }
+
+    .strum-bpm-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: var(--color-primary);
+      cursor: pointer;
+      border: 2px solid var(--color-bg-card);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .strum-bpm-slider::-moz-range-thumb {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: var(--color-primary);
+      cursor: pointer;
+      border: 2px solid var(--color-bg-card);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .strum-bpm-display {
+      font-size: var(--font-size-xl);
+      font-weight: var(--font-weight-extra-bold);
+      color: var(--color-primary);
+      min-width: 3em;
+      text-align: center;
+    }
+
+    .strum-bpm-input {
+      width: 70px;
+      text-align: center;
+    }
+
+    /* --- Tap-in Row --- */
+    .strum-tap-row {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      gap: var(--space-md);
+      flex-wrap: wrap;
+    }
+
+    .strum-tap-feedback {
+      font-size: var(--font-size-sm);
+      color: var(--color-text-light);
+      font-style: italic;
+    }
+
+    /* --- Game Screen --- */
+    .strum-game {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    /* --- Timeline Canvas --- */
+    .strum-timeline-area {
+      background: var(--color-bg-card);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-md);
+      padding: var(--space-md);
+      margin-bottom: var(--space-md);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .strum-timeline-canvas {
+      display: block;
+      width: 100%;
+      height: 220px;
+      border-radius: var(--radius-md);
+    }
+
+    /* --- Timing Indicator Bar --- */
+    .strum-timing-bar {
+      background: var(--color-bg-card);
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-sm);
+      padding: var(--space-sm) var(--space-md);
+      margin-bottom: var(--space-lg);
+      position: relative;
+      height: 32px;
+      display: flex;
+      align-items: center;
+    }
+
+    .strum-timing-bar__track {
+      position: relative;
+      width: 100%;
+      height: 4px;
+      background: var(--color-border);
+      border-radius: var(--radius-full);
+    }
+
+    .strum-timing-bar__center {
+      position: absolute;
+      left: 50%;
+      top: -4px;
+      width: 2px;
+      height: 12px;
+      background: var(--color-text-muted);
+      transform: translateX(-50%);
+    }
+
+    .strum-timing-bar__dot {
+      position: absolute;
+      top: -6px;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--color-primary);
+      transform: translateX(-50%);
+      left: 50%;
+      transition: left 0.2s ease;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .strum-timing-bar__labels {
+      display: flex;
+      justify-content: space-between;
+      position: absolute;
+      width: 100%;
+      top: -14px;
+      left: 0;
+      font-size: var(--font-size-xs);
+      color: var(--color-text-muted);
+      pointer-events: none;
+    }
+
+    /* --- Beat Light --- */
+    .strum-beat-light-wrap {
+      display: flex;
+      justify-content: center;
+      margin-bottom: var(--space-md);
+    }
+
+    .strum-beat-light {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: var(--color-border);
+      border: 3px solid var(--color-bg-card);
+      box-shadow: var(--shadow-sm);
+      transition: background-color 0.05s ease, box-shadow 0.05s ease;
+    }
+
+    /* --- Stats Bar --- */
+    .strum-stats {
+      display: flex;
+      justify-content: center;
+      gap: var(--space-xl);
+      flex-wrap: wrap;
+      background: var(--color-bg-card);
+      border-radius: var(--radius-lg);
+      padding: var(--space-md) var(--space-xl);
+      box-shadow: var(--shadow-sm);
+      margin-bottom: var(--space-md);
+    }
+
+    .strum-stat {
+      text-align: center;
+    }
+
+    .strum-stat__value {
+      font-size: var(--font-size-2xl);
+      font-weight: var(--font-weight-extra-bold);
+      color: var(--color-primary);
+      line-height: 1;
+    }
+
+    .strum-stat__label {
+      font-size: var(--font-size-xs);
+      color: var(--color-text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-top: var(--space-xs);
+    }
+
+    /* --- Loop Summary (practice mode) --- */
+    .strum-loop-summary {
+      background: rgba(108, 92, 231, 0.06);
+      border-radius: var(--radius-md);
+      padding: var(--space-sm) var(--space-md);
+      margin-bottom: var(--space-md);
+      text-align: center;
+      font-size: var(--font-size-sm);
+      color: var(--color-text-light);
+      min-height: 2.5em;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* --- Game Controls --- */
+    .strum-controls {
+      display: flex;
+      justify-content: center;
+      gap: var(--space-md);
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .strum-hint {
+      text-align: center;
+      color: var(--color-text-light);
+      font-size: var(--font-size-sm);
+      margin-bottom: var(--space-md);
+    }
+
+    /* --- Results Screen --- */
+    .strum-results {
+      max-width: 640px;
+      margin: 0 auto;
+    }
+
+    /* --- Histogram --- */
+    .strum-histogram {
+      margin: var(--space-md) 0;
+    }
+
+    .strum-histogram__title {
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-bold);
+      color: var(--color-text-light);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: var(--space-sm);
+      text-align: center;
+    }
+
+    .strum-histogram__canvas {
+      display: block;
+      width: 100%;
+      height: 100px;
+      border-radius: var(--radius-sm);
+    }
+
+    /* --- AI Feedback --- */
+    .strum-feedback-panel {
+      background: rgba(0, 206, 201, 0.08);
+      border: 2px solid var(--color-secondary-light);
+      border-radius: var(--radius-md);
+      padding: var(--space-md);
+      margin-bottom: var(--space-lg);
+      font-size: var(--font-size-sm);
+      line-height: var(--line-height-base);
+      color: var(--color-text);
+    }
+
+    .strum-feedback-panel__title {
+      font-weight: var(--font-weight-bold);
+      color: var(--color-secondary-dark);
+      margin-bottom: var(--space-xs);
+    }
+
+    /* --- Responsive --- */
+    @media (max-width: 480px) {
+      .strum-setup__grid {
+        grid-template-columns: 1fr;
+      }
+
+      .strum-stats {
+        gap: var(--space-md);
+        padding: var(--space-sm) var(--space-md);
+      }
+
+      .strum-stat__value {
+        font-size: var(--font-size-xl);
+      }
+
+      .strum-tempo-row {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .strum-pattern-preview__grid {
+        font-size: var(--font-size-lg);
+      }
+
+      .strum-pattern-preview__slot {
+        width: 1.8em;
+        height: 1.8em;
+      }
+
+      .strum-timeline-canvas {
+        height: 170px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="mtt-header">
+    <a href="../index.html" class="mtt-header__logo" style="text-decoration:none">
+      <span aria-hidden="true">&#9835;</span> Music Theory Games
+    </a>
+    <nav class="mtt-header__nav">
+      <a href="../index.html" class="mtt-header__link">Home</a>
+      <a href="../rhythm/index.html" class="mtt-header__link">Rhythm</a>
+      <a href="#" class="mtt-header__link mtt-header__link--active">Strumming</a>
+    </nav>
+  </header>
+
+  <main class="container">
+    <!-- ===== Setup Screen ===== -->
+    <section id="screen-setup" class="strum-screen">
+      <div class="strum-setup">
+        <h1 class="text-center mb-lg">Guitar Strumming</h1>
+        <p class="text-center mb-lg" style="color: var(--color-text-light);">
+          Play along to strumming patterns! Use your microphone or tap the spacebar to match the rhythm.
+        </p>
+
+        <div class="strum-setup__grid">
+          <!-- Player Name -->
+          <div class="form-group">
+            <label class="form-label" for="player-name">Your Name</label>
+            <input type="text" id="player-name" class="form-input"
+                   placeholder="Enter your name" maxlength="30" value="Player">
+          </div>
+
+          <!-- Pattern -->
+          <div class="form-group">
+            <label class="form-label" for="pattern-select">Pattern</label>
+            <select id="pattern-select" class="form-select"></select>
+          </div>
+
+          <!-- Mode -->
+          <div class="form-group">
+            <label class="form-label" for="game-mode">Mode</label>
+            <select id="game-mode" class="form-select">
+              <option value="practice">Practice (loops)</option>
+              <option value="test">Test (4 measures)</option>
+            </select>
+          </div>
+
+          <!-- Difficulty -->
+          <div class="form-group">
+            <label class="form-label" for="difficulty">Difficulty</label>
+            <select id="difficulty" class="form-select">
+              <option value="easy">Easy (&plusmn;100ms)</option>
+              <option value="medium" selected>Medium (&plusmn;60ms)</option>
+              <option value="hard">Hard (&plusmn;30ms)</option>
+            </select>
+          </div>
+
+          <!-- Pattern Preview -->
+          <div class="strum-pattern-preview" id="pattern-preview">
+            <div class="strum-pattern-preview__grid" id="pattern-preview-grid"></div>
+            <div class="strum-pattern-preview__tips" id="pattern-preview-tips"></div>
+          </div>
+
+          <!-- Tempo -->
+          <div class="form-group strum-tempo-row">
+            <label class="form-label">Tempo (BPM)</label>
+            <input type="range" id="bpm-slider" class="strum-bpm-slider"
+                   min="40" max="160" value="80" aria-label="Tempo slider">
+            <span id="bpm-value" class="strum-bpm-display">80</span>
+            <input type="number" id="bpm-input" class="form-input strum-bpm-input"
+                   min="40" max="160" value="80" aria-label="Tempo input">
+          </div>
+
+          <!-- Tap-In -->
+          <div class="form-group strum-tap-row">
+            <button id="btn-tap-in" class="btn btn--secondary" type="button">
+              Tap Tempo
+            </button>
+            <span id="tap-feedback" class="strum-tap-feedback">Tap the button or press space 4+ times to set tempo</span>
+          </div>
+        </div>
+
+        <div class="text-center mt-xl">
+          <button id="btn-start" class="btn btn--primary btn--large">
+            Start Playing
+          </button>
+        </div>
+
+        <!-- Leaderboard preview -->
+        <div class="mt-xl">
+          <h3 class="leaderboard__title">
+            <span aria-hidden="true">&#127942;</span> Top Scores
+          </h3>
+          <div id="setup-leaderboard" class="leaderboard"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== Game Screen ===== -->
+    <section id="screen-game" class="strum-screen" hidden>
+      <div class="strum-game">
+        <!-- Beat Light -->
+        <div class="strum-beat-light-wrap">
+          <div id="beat-light" class="strum-beat-light" aria-label="Beat indicator"></div>
+        </div>
+
+        <!-- Timeline Canvas -->
+        <div class="strum-timeline-area">
+          <canvas id="timeline-canvas" class="strum-timeline-canvas" aria-label="Strumming timeline visualization"></canvas>
+        </div>
+
+        <!-- Timing Indicator Bar -->
+        <div class="strum-timing-bar" aria-label="Timing accuracy indicator">
+          <div class="strum-timing-bar__track">
+            <div class="strum-timing-bar__center"></div>
+            <div class="strum-timing-bar__dot" id="timing-dot"></div>
+            <div class="strum-timing-bar__labels">
+              <span>Early</span>
+              <span>Late</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stats -->
+        <div class="strum-stats" role="status" aria-live="polite">
+          <div class="strum-stat">
+            <div class="strum-stat__value" id="stat-streak">0</div>
+            <div class="strum-stat__label">Streak</div>
+          </div>
+          <div class="strum-stat">
+            <div class="strum-stat__value" id="stat-accuracy">—</div>
+            <div class="strum-stat__label">Accuracy</div>
+          </div>
+          <div class="strum-stat">
+            <div class="strum-stat__value" id="stat-measure">0</div>
+            <div class="strum-stat__label">Measure</div>
+          </div>
+          <div class="strum-stat">
+            <div class="strum-stat__value" id="stat-bpm">80</div>
+            <div class="strum-stat__label">BPM</div>
+          </div>
+        </div>
+
+        <!-- Loop Summary (practice mode) -->
+        <div class="strum-loop-summary" id="loop-summary">
+          Strum along with the pattern!
+        </div>
+
+        <!-- Hint -->
+        <p class="strum-hint">
+          Strum your guitar near the mic or press <kbd>Space</kbd> on each arrow
+        </p>
+
+        <!-- Controls -->
+        <div class="strum-controls">
+          <button id="btn-slow-down" class="btn btn--secondary btn--small" type="button">
+            Slow Down (-10 BPM)
+          </button>
+          <button id="btn-stop" class="btn btn--danger">
+            Stop
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== Results Screen ===== -->
+    <section id="screen-results" class="strum-screen" hidden>
+      <div class="strum-results card">
+        <h2 class="text-center mb-md">Results</h2>
+
+        <div class="score-display mb-lg">
+          <div class="score-display__item">
+            <div class="score-display__value" id="result-score">0</div>
+            <div class="score-display__label">Score</div>
+          </div>
+          <div class="score-display__item">
+            <div class="score-display__value" id="result-accuracy">0%</div>
+            <div class="score-display__label">Accuracy</div>
+          </div>
+          <div class="score-display__item">
+            <div class="score-display__value" id="result-streak">0</div>
+            <div class="score-display__label">Best Streak</div>
+          </div>
+          <div class="score-display__item">
+            <div class="score-display__value" id="result-hits">0/0</div>
+            <div class="score-display__label">Strums Hit</div>
+          </div>
+        </div>
+
+        <!-- Timing Histogram -->
+        <div class="strum-histogram">
+          <div class="strum-histogram__title">Timing Distribution</div>
+          <canvas id="histogram-canvas" class="strum-histogram__canvas" aria-label="Timing histogram"></canvas>
+        </div>
+
+        <!-- AI Feedback -->
+        <div id="ai-feedback-panel" class="strum-feedback-panel" hidden>
+          <div class="strum-feedback-panel__title">Coach Says:</div>
+          <div id="ai-feedback-text"></div>
+        </div>
+
+        <div class="mb-lg">
+          <h3 class="leaderboard__title">
+            <span aria-hidden="true">&#127942;</span> Leaderboard
+          </h3>
+          <div id="results-leaderboard" class="leaderboard"></div>
+        </div>
+
+        <div class="text-center">
+          <button id="btn-play-again" class="btn btn--primary btn--large">
+            Play Again
+          </button>
+          <a href="../index.html" class="btn btn--secondary btn--large" style="margin-left: var(--space-md);">
+            Home
+          </a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script type="module">
+    // ============================================================
+    //  Guitar Strumming Game — Main Logic
+    // ============================================================
+
+    import { saveScore, renderLeaderboard } from '../shared/progress.js';
+    import {
+      recordAttempt, recordSession, selectWeighted,
+      getSessionFeedback, isAIAvailable
+    } from '../shared/ai.js';
+    import { getAllPatterns, getPatternById, BUILT_IN_PATTERNS } from './patterns.js';
+    import { startDetection, stopDetection } from './detection.js';
+
+    /* ---------------------------------------------------------- */
+    /*  Constants                                                  */
+    /* ---------------------------------------------------------- */
+
+    const GAME_ID = 'strumming';
+
+    const TOLERANCE = { easy: 100, medium: 60, hard: 30 };
+    const PERFECT_WINDOW = 10;
+    const POINTS = { perfect: 3, hit: 2, miss: 0 };
+    const STREAK_BONUS_THRESHOLD = 5;
+    const STREAK_BONUS_POINTS = 1;
+
+    const DIFFICULTY_LOOKAHEAD_MEASURES = { easy: 2, medium: 1, hard: 0 };
+    const METRONOME_AUDIBLE = { easy: true, medium: true, hard: false };
+
+    const CLICK_FREQ_DOWNBEAT = 1000;
+    const CLICK_FREQ_BEAT = 800;
+    const CLICK_DURATION = 0.03;
+
+    const TEST_MEASURES = 4;
+    const COUNT_IN_MEASURES = 1;
+
+    const TIMING_HISTORY_SIZE = 8;
+
+    /* ---------------------------------------------------------- */
+    /*  DOM Refs                                                   */
+    /* ---------------------------------------------------------- */
+
+    const $ = (id) => document.getElementById(id);
+
+    const screens = {
+      setup: $('screen-setup'),
+      game: $('screen-game'),
+      results: $('screen-results'),
+    };
+
+    /* ---------------------------------------------------------- */
+    /*  Game State                                                 */
+    /* ---------------------------------------------------------- */
+
+    const state = {
+      screen: 'setup',
+      mode: 'practice',        // 'practice' | 'test'
+      difficulty: 'medium',
+      pattern: null,           // current StrumPattern
+      bpm: 80,
+      playerName: 'Player',
+
+      // Audio
+      audioCtx: null,
+      metronomeAudible: true,
+
+      // Timing
+      startTime: 0,            // performance.now() when game starts (after count-in)
+      countInStartTime: 0,
+      eighthNoteMs: 0,         // duration of one eighth note in ms
+      measureMs: 0,            // duration of one measure in ms
+      expectedStrums: [],      // [{time, slotIdx, direction}] all expected strum times
+      countInBeats: [],        // count-in beat times
+
+      // Game progress
+      currentMeasure: 0,
+      totalMeasures: 0,        // 0 for practice (infinite)
+      isCountIn: false,
+      isPlaying: false,
+
+      // Scoring
+      results: [],             // [{expected, actual, deltaMs, grade}] per strum
+      detectedStrums: [],      // [{time}] raw detected strum times
+      score: 0,
+      streak: 0,
+      bestStreak: 0,
+      timingHistory: [],       // last N delta values for timing bar
+
+      // Loop tracking (practice)
+      loopHits: 0,
+      loopTotal: 0,
+      loopMeasureStart: 0,
+
+      // Animation
+      animFrameId: 0,
+      metronomeTimeoutId: 0,
+    };
+
+    /* ---------------------------------------------------------- */
+    /*  Initialization                                             */
+    /* ---------------------------------------------------------- */
+
+    function init() {
+      populatePatternSelect();
+      bindEvents();
+      updatePatternPreview();
+      renderLeaderboard($('setup-leaderboard'), GAME_ID, 10);
+    }
+
+    function populatePatternSelect() {
+      const select = $('pattern-select');
+      select.innerHTML = '';
+      const patterns = getAllPatterns();
+      patterns.forEach((p) => {
+        const opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = p.name;
+        select.appendChild(opt);
+      });
+
+      // Use adaptive selection to suggest a pattern
+      const patternNames = patterns.map((p) => p.name);
+      const suggested = selectWeighted(GAME_ID, patternNames);
+      if (suggested) {
+        const suggestedPattern = patterns.find((p) => p.name === suggested);
+        if (suggestedPattern) {
+          select.value = suggestedPattern.id;
+        }
+      }
+    }
+
+    function updatePatternPreview() {
+      const pattern = getPatternById($('pattern-select').value);
+      if (!pattern) return;
+
+      const grid = $('pattern-preview-grid');
+      grid.innerHTML = '';
+      pattern.grid.forEach((slot) => {
+        const el = document.createElement('div');
+        let cls = 'strum-pattern-preview__slot';
+        if (slot === 'D') cls += ' strum-pattern-preview__slot--D';
+        else if (slot === 'U') cls += ' strum-pattern-preview__slot--U';
+        else cls += ' strum-pattern-preview__slot--rest';
+
+        if (slot === 'D') el.innerHTML = '&#8595;';      // ↓
+        else if (slot === 'U') el.innerHTML = '&#8593;';  // ↑
+        else el.textContent = '-';
+
+        el.className = cls;
+        grid.appendChild(el);
+      });
+
+      $('pattern-preview-tips').textContent = pattern.tips;
+
+      // Set BPM from pattern's suggested range
+      const midBpm = Math.round((pattern.suggestedBpmRange[0] + pattern.suggestedBpmRange[1]) / 2);
+      setBpm(midBpm);
+    }
+
+    /* ---------------------------------------------------------- */
+    /*  Event Binding                                              */
+    /* ---------------------------------------------------------- */
+
+    function bindEvents() {
+      // Setup
+      $('pattern-select').addEventListener('change', updatePatternPreview);
+      $('bpm-slider').addEventListener('input', () => setBpm(+$('bpm-slider').value));
+      $('bpm-input').addEventListener('change', () => setBpm(+$('bpm-input').value));
+      $('btn-tap-in').addEventListener('click', handleTapIn);
+      $('btn-start').addEventListener('click', handleStart);
+
+      // Game
+      $('btn-stop').addEventListener('click', handleStop);
+      $('btn-slow-down').addEventListener('click', () => {
+        setBpm(Math.max(40, state.bpm - 10));
+        $('stat-bpm').textContent = state.bpm;
+      });
+
+      // Results
+      $('btn-play-again').addEventListener('click', () => showScreen('setup'));
+
+      // Keyboard
+      document.addEventListener('keydown', handleKeydown);
+    }
+
+    let tapTimes = [];
+
+    function handleTapIn() {
+      const now = performance.now();
+      tapTimes.push(now);
+
+      // Keep only recent taps (within 3 seconds)
+      tapTimes = tapTimes.filter((t) => now - t < 3000);
+
+      if (tapTimes.length < 2) {
+        $('tap-feedback').textContent = `Tap ${4 - tapTimes.length} more times...`;
+        return;
+      }
+
+      // Average intervals
+      let totalInterval = 0;
+      for (let i = 1; i < tapTimes.length; i++) {
+        totalInterval += tapTimes[i] - tapTimes[i - 1];
+      }
+      const avgInterval = totalInterval / (tapTimes.length - 1);
+      const bpm = Math.round(60000 / avgInterval);
+      const clamped = Math.max(40, Math.min(160, bpm));
+      setBpm(clamped);
+      $('tap-feedback').textContent = `Detected ${clamped} BPM (${tapTimes.length} taps)`;
+    }
+
+    function handleKeydown(e) {
+      if (e.code === 'Space') {
+        e.preventDefault();
+
+        if (state.screen === 'setup') {
+          handleTapIn();
+        } else if (state.screen === 'game' && state.isPlaying) {
+          registerStrum(performance.now());
+        }
+      }
+    }
+
+    /* ---------------------------------------------------------- */
+    /*  BPM Control                                                */
+    /* ---------------------------------------------------------- */
+
+    function setBpm(val) {
+      const clamped = Math.max(40, Math.min(160, val));
+      state.bpm = clamped;
+      $('bpm-slider').value = clamped;
+      $('bpm-input').value = clamped;
+      $('bpm-value').textContent = clamped;
+    }
+
+    /* ---------------------------------------------------------- */
+    /*  Screen Management                                          */
+    /* ---------------------------------------------------------- */
+
+    function showScreen(name) {
+      state.screen = name;
+      Object.entries(screens).forEach(([key, el]) => {
+        el.hidden = key !== name;
+      });
+
+      if (name === 'setup') {
+        renderLeaderboard($('setup-leaderboard'), GAME_ID, 10);
+      }
+    }
+
+    /* ---------------------------------------------------------- */
+    /*  Game Start                                                 */
+    /* ---------------------------------------------------------- */
+
+    async function handleStart() {
+      state.playerName = $('player-name').value.trim() || 'Player';
+      state.mode = $('game-mode').value;
+      state.difficulty = $('difficulty').value;
+      state.pattern = getPatternById($('pattern-select').value);
+      state.metronomeAudible = METRONOME_AUDIBLE[state.difficulty];
+
+      if (!state.pattern) return;
+
+      // Init audio context
+      if (!state.audioCtx) {
+        state.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (state.audioCtx.state === 'suspended') {
+        await state.audioCtx.resume();
+      }
+
+      // Start mic detection
+      const micOk = await startDetection(state.audioCtx, (time) => {
+        if (state.isPlaying) registerStrum(time);
+      });
+
+      if (!micOk) {
+        // Continue without mic — user can use spacebar
+        console.warn('[strumming] Mic unavailable, spacebar only');
+      }
+
+      // Calculate timing
+      const beatMs = 60000 / state.bpm;      // quarter note
+      state.eighthNoteMs = beatMs / 2;        // eighth note
+      state.measureMs = beatMs * 4;           // 4/4 time
+
+      // Reset game state
+      state.score = 0;
+      state.streak = 0;
+      state.bestStreak = 0;
+      state.results = [];
+      state.detectedStrums = [];
+      state.timingHistory = [];
+      state.currentMeasure = 0;
+      state.loopHits = 0;
+      state.loopTotal = 0;
+      state.loopMeasureStart = 0;
+      state.totalMeasures = state.mode === 'test' ? TEST_MEASURES : 0;
+
+      // Build count-in beats and expected strum times
+      buildCountInBeats();
+
+      // Show game screen
+      showScreen('game');
+      $('stat-bpm').textContent = state.bpm;
+      $('stat-streak').textContent = '0';
+      $('stat-accuracy').textContent = '—';
+      $('stat-measure').textContent = '0';
+      $('loop-summary').textContent = state.mode === 'practice'
+        ? 'Count-in...'
+        : `Test: ${TEST_MEASURES} measures — Count-in...`;
+
+      // Show/hide practice controls
+      $('btn-slow-down').hidden = state.mode !== 'practice';
+
+      // Start count-in
+      state.isCountIn = true;
+      state.isPlaying = false;
+      state.countInStartTime = performance.now() + 200; // small buffer
+
+      startCountIn();
+    }
+
+    /* ---------------------------------------------------------- */
+    /*  Count-In                                                   */
+    /* ---------------------------------------------------------- */
+
+    function buildCountInBeats() {
+      state.countInBeats = [];
+      for (let i = 0; i < 4; i++) { // 4 quarter-note count-in beats
+        state.countInBeats.push({ beatIndex: i });
+      }
+    }
+
+    function startCountIn() {
+      const beatMs = 60000 / state.bpm;
+      let beatIdx = 0;
+
+      function scheduleNextBeat() {
+        if (!state.isCountIn) return;
+
+        const beatTime = state.countInStartTime + beatIdx * beatMs;
+        const now = performance.now();
+        const delay = beatTime - now;
+
+        if (delay < -beatMs) {
+          // Skipped beat
+          beatIdx++;
+          if (beatIdx >= 4) {
+            finishCountIn();
+            return;
+          }
+          scheduleNextBeat();
+          return;
+        }
+
+        state.metronomeTimeoutId = setTimeout(() => {
+          if (!state.isCountIn) return;
+
+          // Play click
+          playClick(true);
+          flashBeatLight(true);
+
+          beatIdx++;
+          if (beatIdx >= 4) {
+            // Count-in done — start game after one more beat interval
+            setTimeout(() => finishCountIn(), beatMs);
+          } else {
+            scheduleNextBeat();
+          }
+        }, Math.max(0, delay));
+      }
+
+      scheduleNextBeat();
+
+      // Start rendering during count-in
+      state.animFrameId = requestAnimationFrame(renderFrame);
+    }
+
+    function finishCountIn() {
+      state.isCountIn = false;
+      state.isPlaying = true;
+      state.startTime = performance.now();
+      state.loopMeasureStart = 0;
+
+      // Build expected strums for the session
+      buildExpectedStrums();
+
+      // Start metronome
+      startMetronome();
+
+      $('loop-summary').textContent = state.mode === 'practice'
+        ? 'Strum along with the pattern!'
+        : `Test: ${TEST_MEASURES} measures`;
+    }
+
+    /* ---------------------------------------------------------- */
+    /*  Expected Strum Times                                       */
+    /* ---------------------------------------------------------- */
+
+    function buildExpectedStrums() {
+      state.expectedStrums = [];
+      const numMeasures = state.mode === 'test' ? TEST_MEASURES : 64; // large buffer for practice
+
+      for (let m = 0; m < numMeasures; m++) {
+        const measureStart = state.startTime + m * state.measureMs;
+        state.pattern.grid.forEach((slot, i) => {
+          if (slot === 'D' || slot === 'U') {
+            state.expectedStrums.push({
+              time: measureStart + i * state.eighthNoteMs,
+              slotIdx: i,
+              direction: slot,
+              measure: m,
+              matched: false,
+              grade: null,
+            });
+          }
+        });
+      }
+    }
+
+    /* ---------------------------------------------------------- */
+    /*  Metronome                                                  */
+    /* ---------------------------------------------------------- */
+
+    function startMetronome() {
+      const beatMs = 60000 / state.bpm;
+      let nextBeatTime = state.startTime;
+      let beatCount = 0;
+
+      function tick() {
+        if (!state.isPlaying) return;
+
+        const now = performance.now();
+
+        // Schedule any beats that are due
+        while (nextBeatTime <= now + 50) { // look ahead 50ms
+          const isDownbeat = (beatCount % 4) === 0;
+
+          // Schedule audio
+          if (state.metronomeAudible) {
+            const audioTime = state.audioCtx.currentTime + Math.max(0, (nextBeatTime - now) / 1000);
+            scheduleClick(audioTime, isDownbeat);
+          }
+
+          // Flash beat light (schedule visually)
+          const delay = Math.max(0, nextBeatTime - now);
+          setTimeout(() => flashBeatLight(isDownbeat), delay);
+
+          nextBeatTime += beatMs;
+          beatCount++;
+        }
+
+        // Update measure counter
+        const elapsed = now - state.startTime;
+        const currentMeasure = Math.floor(elapsed / state.measureMs);
+
+        if (state.mode === 'test' && currentMeasure >= TEST_MEASURES) {
+          endGame();
+          return;
+        }
+
+        // Practice mode: detect loop completion
+        if (state.mode === 'practice' && currentMeasure > state.loopMeasureStart) {
+          showLoopSummary();
+          state.loopMeasureStart = currentMeasure;
+          state.loopHits = 0;
+          state.loopTotal = 0;
+        }
+
+        state.currentMeasure = currentMeasure;
+        $('stat-measure').textContent = currentMeasure + 1;
+
+        // Rebuild expected strums for practice if running low
+        if (state.mode === 'practice') {
+          const lastExpected = state.expectedStrums[state.expectedStrums.length - 1];
+          if (lastExpected && now > lastExpected.time - state.measureMs * 8) {
+            extendExpectedStrums();
+          }
+        }
+
+        state.metronomeTimeoutId = setTimeout(tick, 15);
+      }
+
+      tick();
+    }
+
+    function extendExpectedStrums() {
+      const lastMeasure = state.expectedStrums.length > 0
+        ? state.expectedStrums[state.expectedStrums.length - 1].measure + 1
+        : 0;
+
+      for (let m = lastMeasure; m < lastMeasure + 16; m++) {
+        const measureStart = state.startTime + m * state.measureMs;
+        state.pattern.grid.forEach((slot, i) => {
+          if (slot === 'D' || slot === 'U') {
+            state.expectedStrums.push({
+              time: measureStart + i * state.eighthNoteMs,
+              slotIdx: i,
+              direction: slot,
+              measure: m,
+              matched: false,
+              grade: null,
+            });
+          }
+        });
+      }
+    }
+
+    function scheduleClick(audioTime, isDownbeat) {
+      try {
+        const osc = state.audioCtx.createOscillator();
+        const gain = state.audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(state.audioCtx.destination);
+        osc.frequency.value = isDownbeat ? CLICK_FREQ_DOWNBEAT : CLICK_FREQ_BEAT;
+        gain.gain.setValueAtTime(0.3, audioTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioTime + CLICK_DURATION);
+        osc.start(audioTime);
+        osc.stop(audioTime + CLICK_DURATION);
+      } catch {
+        // Ignore audio scheduling errors
+      }
+    }
+
+    function playClick(isDownbeat) {
+      try {
+        if (!state.audioCtx) return;
+        const osc = state.audioCtx.createOscillator();
+        const gain = state.audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(state.audioCtx.destination);
+        osc.frequency.value = isDownbeat ? CLICK_FREQ_DOWNBEAT : CLICK_FREQ_BEAT;
+        gain.gain.setValueAtTime(0.3, state.audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, state.audioCtx.currentTime + CLICK_DURATION);
+        osc.start();
+        osc.stop(state.audioCtx.currentTime + CLICK_DURATION);
+      } catch {
+        // Ignore
+      }
+    }
+
+    function flashBeatLight(isDownbeat) {
+      const light = $('beat-light');
+      const color = isDownbeat ? 'var(--color-primary)' : 'var(--color-secondary)';
+      light.style.background = color;
+      light.style.boxShadow = `0 0 20px 6px ${isDownbeat ? 'rgba(108,92,231,0.5)' : 'rgba(0,206,201,0.4)'}`;
+      setTimeout(() => {
+        light.style.background = 'var(--color-border)';
+        light.style.boxShadow = 'var(--shadow-sm)';
+      }, 120);
+    }
+
+    /* ---------------------------------------------------------- */
+    /*  Strum Registration & Scoring                               */
+    /* ---------------------------------------------------------- */
+
+    function registerStrum(time) {
+      state.detectedStrums.push({ time });
+
+      // Find nearest unmatched expected strum
+      const tolerance = TOLERANCE[state.difficulty];
+      let bestIdx = -1;
+      let bestDelta = Infinity;
+
+      for (let i = 0; i < state.expectedStrums.length; i++) {
+        const exp = state.expectedStrums[i];
+        if (exp.matched) continue;
+
+        const delta = time - exp.time;
+
+        // Don't match strums too far in the future
+        if (delta < -tolerance * 2) break;
+
+        // Don't match strums too far in the past
+        if (delta > tolerance * 2) continue;
+
+        const absDelta = Math.abs(delta);
+        if (absDelta < bestDelta) {
+          bestDelta = absDelta;
+          bestIdx = i;
+        }
+      }
+
+      if (bestIdx >= 0 && bestDelta <= tolerance) {
+        const exp = state.expectedStrums[bestIdx];
+        const delta = time - exp.time;
+        exp.matched = true;
+
+        const isPerfect = bestDelta <= PERFECT_WINDOW;
+        const grade = isPerfect ? 'perfect' : 'hit';
+        exp.grade = grade;
+
+        const points = POINTS[grade] + (state.streak >= STREAK_BONUS_THRESHOLD ? STREAK_BONUS_POINTS : 0);
+        state.score += points;
+        state.streak++;
+        if (state.streak > state.bestStreak) state.bestStreak = state.streak;
+
+        state.results.push({ expected: exp.time, actual: time, deltaMs: delta, grade });
+        state.timingHistory.push(delta);
+        if (state.timingHistory.length > TIMING_HISTORY_SIZE) state.timingHistory.shift();
+
+        state.loopHits++;
+        state.loopTotal++;
+
+        recordAttempt(GAME_ID, state.pattern.name, { hit: true, responseMs: bestDelta });
+      } else {
+        // Miss — strum at wrong time or extra strum
+        state.streak = 0;
+        state.results.push({ expected: null, actual: time, deltaMs: null, grade: 'extra' });
+
+        recordAttempt(GAME_ID, state.pattern.name, { hit: false });
+      }
+
+      updateStats();
+    }
+
+    function checkMissedStrums() {
+      const now = performance.now();
+      const tolerance = TOLERANCE[state.difficulty];
+
+      for (const exp of state.expectedStrums) {
+        if (exp.matched || exp.grade === 'miss') continue;
+        if (now - exp.time > tolerance * 2) {
+          exp.grade = 'miss';
+          state.results.push({ expected: exp.time, actual: null, deltaMs: null, grade: 'miss' });
+          state.streak = 0;
+          state.loopTotal++;
+
+          recordAttempt(GAME_ID, state.pattern.name, { hit: false });
+        }
+      }
+    }
+
+    function updateStats() {
+      $('stat-streak').textContent = state.streak;
+
+      const scored = state.results.filter((r) => r.grade !== 'extra');
+      const hits = scored.filter((r) => r.grade === 'perfect' || r.grade === 'hit').length;
+      const total = scored.length;
+      if (total > 0) {
+        $('stat-accuracy').textContent = Math.round((hits / total) * 100) + '%';
+      }
+
+      // Update timing bar
+      updateTimingBar();
+    }
+
+    function updateTimingBar() {
+      if (state.timingHistory.length === 0) return;
+
+      const avg = state.timingHistory.reduce((s, v) => s + v, 0) / state.timingHistory.length;
+      const tolerance = TOLERANCE[state.difficulty];
+
+      // Map avg to 0-100% where 50% = center (on beat)
+      const pct = 50 + (avg / tolerance) * 40; // ±40% swing
+      const clamped = Math.max(5, Math.min(95, pct));
+
+      $('timing-dot').style.left = clamped + '%';
+
+      // Color based on accuracy
+      const absAvg = Math.abs(avg);
+      if (absAvg < tolerance * 0.3) {
+        $('timing-dot').style.background = 'var(--color-success)';
+      } else if (absAvg < tolerance * 0.7) {
+        $('timing-dot').style.background = 'var(--color-warning)';
+      } else {
+        $('timing-dot').style.background = 'var(--color-error)';
+      }
+    }
+
+    /* ---------------------------------------------------------- */
+    /*  Loop Summary (Practice Mode)                               */
+    /* ---------------------------------------------------------- */
+
+    function showLoopSummary() {
+      if (state.loopTotal === 0) return;
+      const pct = Math.round((state.loopHits / state.loopTotal) * 100);
+      $('loop-summary').textContent =
+        `Last loop: ${state.loopHits}/${state.loopTotal} strums hit (${pct}%)`;
+    }
+
+    /* ---------------------------------------------------------- */
+    /*  Canvas Rendering                                           */
+    /* ---------------------------------------------------------- */
+
+    function renderFrame() {
+      if (state.screen !== 'game') return;
+
+      const canvas = $('timeline-canvas');
+      const ctx = canvas.getContext('2d');
+
+      // Handle DPI scaling
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      if (canvas.width !== rect.width * dpr || canvas.height !== rect.height * dpr) {
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.height * dpr;
+        ctx.scale(dpr, dpr);
+      }
+
+      const W = rect.width;
+      const H = rect.height;
+      const now = performance.now();
+
+      // Clear
+      ctx.clearRect(0, 0, W, H);
+
+      // Playhead position
+      const playheadX = W * 0.35;
+
+      // Pixels per ms
+      const pxPerMs = W / (state.measureMs * 2.5); // show ~2.5 measures across the screen
+
+      // Lookahead
+      const lookaheadMs = (state.mode === 'test' ? 1 : DIFFICULTY_LOOKAHEAD_MEASURES[state.difficulty]) * state.measureMs + state.measureMs;
+
+      // Timeline reference
+      const gameStartTime = state.isCountIn ? state.countInStartTime : state.startTime;
+      const elapsed = now - gameStartTime;
+
+      // --- Draw grid lines (measure/beat lines) ---
+      drawGridLines(ctx, W, H, now, playheadX, pxPerMs);
+
+      // --- Draw playhead ---
+      ctx.strokeStyle = 'rgba(108, 92, 231, 0.8)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(playheadX, 0);
+      ctx.lineTo(playheadX, H);
+      ctx.stroke();
+
+      // "NOW" label
+      ctx.fillStyle = 'rgba(108, 92, 231, 0.8)';
+      ctx.font = `bold 10px ${getComputedStyle(document.body).fontFamily}`;
+      ctx.textAlign = 'center';
+      ctx.fillText('NOW', playheadX, 12);
+
+      // --- Row layout ---
+      const targetRowY = H * 0.35;      // Target pattern arrows
+      const detectedRowY = H * 0.72;    // User's detected strums
+      const labelY = H * 0.15;
+
+      // Row labels
+      ctx.fillStyle = '#b2bec3';
+      ctx.font = `bold 9px ${getComputedStyle(document.body).fontFamily}`;
+      ctx.textAlign = 'left';
+      ctx.fillText('PATTERN', 6, labelY);
+      ctx.fillText('YOU', 6, detectedRowY - 18);
+
+      // --- Draw target pattern arrows ---
+      for (const exp of state.expectedStrums) {
+        const dt = exp.time - now;
+        const x = playheadX + dt * pxPerMs;
+
+        // Skip if off-screen
+        if (x < -40 || x > W + 40) continue;
+
+        // Determine color
+        let color;
+        if (exp.grade === 'perfect') {
+          color = '#00b894';
+        } else if (exp.grade === 'hit') {
+          color = '#00b894';
+        } else if (exp.grade === 'miss') {
+          color = 'rgba(214, 48, 49, 0.3)';
+        } else {
+          // Upcoming
+          const distFromPlayhead = Math.abs(dt);
+          const alpha = Math.max(0.2, 1 - distFromPlayhead / (state.measureMs * 2));
+          color = exp.direction === 'D'
+            ? `rgba(108, 92, 231, ${alpha})`
+            : `rgba(0, 206, 201, ${alpha})`;
+        }
+
+        drawArrow(ctx, x, targetRowY, exp.direction, color, exp.grade === 'miss');
+      }
+
+      // --- Draw count-in indicators ---
+      if (state.isCountIn) {
+        const beatMs = 60000 / state.bpm;
+        for (let i = 0; i < 4; i++) {
+          const beatTime = state.countInStartTime + i * beatMs;
+          const dt = beatTime - now;
+          const x = playheadX + dt * pxPerMs;
+          if (x < -40 || x > W + 40) continue;
+
+          ctx.fillStyle = 'rgba(108, 92, 231, 0.5)';
+          ctx.font = `bold 18px ${getComputedStyle(document.body).fontFamily}`;
+          ctx.textAlign = 'center';
+          ctx.fillText(String(i + 1), x, targetRowY + 6);
+        }
+      }
+
+      // --- Draw detected strums ---
+      for (const strum of state.detectedStrums) {
+        const dt = strum.time - now;
+        const x = playheadX + dt * pxPerMs;
+
+        if (x < -40 || x > W + 40) continue;
+
+        // Find matching result
+        const result = state.results.find((r) => r.actual === strum.time);
+        let color = '#b2bec3'; // default gray
+
+        if (result) {
+          if (result.grade === 'perfect') color = '#00b894';
+          else if (result.grade === 'hit') color = '#fdcb6e';
+          else if (result.grade === 'extra') color = '#d63031';
+        }
+
+        // Draw strum marker (small diamond)
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.moveTo(x, detectedRowY - 10);
+        ctx.lineTo(x + 7, detectedRowY);
+        ctx.lineTo(x, detectedRowY + 10);
+        ctx.lineTo(x - 7, detectedRowY);
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      // --- Draw connecting lines between matched pairs ---
+      for (const result of state.results) {
+        if (!result.expected || !result.actual) continue;
+
+        const expDt = result.expected - now;
+        const actDt = result.actual - now;
+        const expX = playheadX + expDt * pxPerMs;
+        const actX = playheadX + actDt * pxPerMs;
+
+        if (expX < -40 && actX < -40) continue;
+        if (expX > W + 40 && actX > W + 40) continue;
+
+        let lineColor;
+        if (result.grade === 'perfect') lineColor = 'rgba(0, 184, 148, 0.25)';
+        else if (result.grade === 'hit') lineColor = 'rgba(253, 203, 110, 0.25)';
+        else lineColor = 'rgba(214, 48, 49, 0.15)';
+
+        ctx.strokeStyle = lineColor;
+        ctx.lineWidth = 1;
+        ctx.setLineDash([3, 3]);
+        ctx.beginPath();
+        ctx.moveTo(expX, targetRowY + 16);
+        ctx.lineTo(actX, detectedRowY - 12);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+
+      // Check for missed strums
+      if (state.isPlaying) {
+        checkMissedStrums();
+      }
+
+      state.animFrameId = requestAnimationFrame(renderFrame);
+    }
+
+    function drawGridLines(ctx, W, H, now, playheadX, pxPerMs) {
+      const beatMs = 60000 / state.bpm;
+      const startTime = state.isCountIn ? state.countInStartTime : state.startTime;
+
+      // Find the range of visible time
+      const timeLeft = now - playheadX / pxPerMs;
+      const timeRight = now + (W - playheadX) / pxPerMs;
+
+      // Draw beat lines
+      const firstBeat = Math.floor((timeLeft - startTime) / beatMs);
+      const lastBeat = Math.ceil((timeRight - startTime) / beatMs);
+
+      for (let i = firstBeat; i <= lastBeat; i++) {
+        const beatTime = startTime + i * beatMs;
+        const x = playheadX + (beatTime - now) * pxPerMs;
+
+        if (x < 0 || x > W) continue;
+
+        const isDownbeat = i >= 0 && i % 4 === 0;
+
+        ctx.strokeStyle = isDownbeat
+          ? 'rgba(108, 92, 231, 0.2)'
+          : 'rgba(178, 190, 195, 0.15)';
+        ctx.lineWidth = isDownbeat ? 1.5 : 0.5;
+        ctx.beginPath();
+        ctx.moveTo(x, 16);
+        ctx.lineTo(x, H);
+        ctx.stroke();
+
+        // Beat number label
+        if (isDownbeat && i >= 0) {
+          const measureNum = Math.floor(i / 4) + 1;
+          ctx.fillStyle = 'rgba(108, 92, 231, 0.3)';
+          ctx.font = `bold 9px ${getComputedStyle(document.body).fontFamily}`;
+          ctx.textAlign = 'center';
+          ctx.fillText(`M${measureNum}`, x, H - 4);
+        }
+      }
+
+      // Separator line between rows
+      const midY = H * 0.53;
+      ctx.strokeStyle = 'rgba(178, 190, 195, 0.2)';
+      ctx.lineWidth = 0.5;
+      ctx.beginPath();
+      ctx.moveTo(0, midY);
+      ctx.lineTo(W, midY);
+      ctx.stroke();
+    }
+
+    function drawArrow(ctx, x, y, direction, color, isMiss) {
+      const size = 14;
+      ctx.fillStyle = color;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+
+      if (isMiss) {
+        // Ghost/faded style
+        ctx.globalAlpha = 0.4;
+      }
+
+      ctx.beginPath();
+      if (direction === 'D') {
+        // Down arrow
+        ctx.moveTo(x, y + size);
+        ctx.lineTo(x - size * 0.6, y - size * 0.3);
+        ctx.lineTo(x - size * 0.2, y - size * 0.3);
+        ctx.lineTo(x - size * 0.2, y - size);
+        ctx.lineTo(x + size * 0.2, y - size);
+        ctx.lineTo(x + size * 0.2, y - size * 0.3);
+        ctx.lineTo(x + size * 0.6, y - size * 0.3);
+        ctx.closePath();
+      } else {
+        // Up arrow
+        ctx.moveTo(x, y - size);
+        ctx.lineTo(x - size * 0.6, y + size * 0.3);
+        ctx.lineTo(x - size * 0.2, y + size * 0.3);
+        ctx.lineTo(x - size * 0.2, y + size);
+        ctx.lineTo(x + size * 0.2, y + size);
+        ctx.lineTo(x + size * 0.2, y + size * 0.3);
+        ctx.lineTo(x + size * 0.6, y + size * 0.3);
+        ctx.closePath();
+      }
+      ctx.fill();
+
+      // Label
+      ctx.font = `bold 10px ${getComputedStyle(document.body).fontFamily}`;
+      ctx.textAlign = 'center';
+      ctx.fillText(direction, x, direction === 'D' ? y - size - 4 : y + size + 12);
+
+      ctx.globalAlpha = 1;
+    }
+
+    /* ---------------------------------------------------------- */
+    /*  Game End                                                   */
+    /* ---------------------------------------------------------- */
+
+    function handleStop() {
+      if (state.mode === 'test') {
+        endGame();
+      } else {
+        stopGame();
+        showScreen('setup');
+      }
+    }
+
+    function stopGame() {
+      state.isPlaying = false;
+      state.isCountIn = false;
+      clearTimeout(state.metronomeTimeoutId);
+      cancelAnimationFrame(state.animFrameId);
+      stopDetection();
+    }
+
+    async function endGame() {
+      stopGame();
+
+      // Final missed strum check
+      for (const exp of state.expectedStrums) {
+        if (!exp.matched && exp.grade !== 'miss' && exp.measure < TEST_MEASURES) {
+          exp.grade = 'miss';
+          state.results.push({ expected: exp.time, actual: null, deltaMs: null, grade: 'miss' });
+        }
+      }
+
+      // Calculate results
+      const scored = state.results.filter((r) => r.grade !== 'extra');
+      const hits = scored.filter((r) => r.grade === 'perfect' || r.grade === 'hit').length;
+      const total = scored.length;
+      const accuracy = total > 0 ? Math.round((hits / total) * 100) : 0;
+
+      // Show results
+      $('result-score').textContent = state.score;
+      $('result-accuracy').textContent = accuracy + '%';
+      $('result-streak').textContent = state.bestStreak;
+      $('result-hits').textContent = `${hits}/${total}`;
+
+      // Save score
+      if (state.mode === 'test') {
+        saveScore(GAME_ID, state.playerName, state.score, {
+          difficulty: state.difficulty,
+          pattern: state.pattern.name,
+          bpm: state.bpm,
+          accuracy,
+          bestStreak: state.bestStreak,
+        });
+      }
+
+      // Record session with ai.js
+      const sessionData = {
+        mode: state.mode,
+        difficulty: state.difficulty,
+        score: state.score,
+        accuracy,
+        pattern: state.pattern.name,
+        bpm: state.bpm,
+        bestStreak: state.bestStreak,
+      };
+      recordSession(GAME_ID, sessionData);
+
+      showScreen('results');
+      renderLeaderboard($('results-leaderboard'), GAME_ID, 10);
+
+      // Draw histogram
+      drawHistogram();
+
+      // AI feedback
+      if (isAIAvailable()) {
+        $('ai-feedback-panel').hidden = false;
+        $('ai-feedback-text').textContent = 'Getting feedback...';
+        const feedback = await getSessionFeedback(GAME_ID, sessionData);
+        if (feedback) {
+          $('ai-feedback-text').textContent = feedback;
+        } else {
+          $('ai-feedback-panel').hidden = true;
+        }
+      } else {
+        $('ai-feedback-panel').hidden = true;
+      }
+    }
+
+    /* ---------------------------------------------------------- */
+    /*  Timing Histogram                                           */
+    /* ---------------------------------------------------------- */
+
+    function drawHistogram() {
+      const canvas = $('histogram-canvas');
+      const ctx = canvas.getContext('2d');
+      const dpr = window.devicePixelRatio || 1;
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.scale(dpr, dpr);
+
+      const W = rect.width;
+      const H = rect.height;
+      const tolerance = TOLERANCE[state.difficulty];
+
+      // Collect timing deltas (only matched strums)
+      const deltas = state.results
+        .filter((r) => r.deltaMs !== null && r.grade !== 'extra')
+        .map((r) => r.deltaMs);
+
+      if (deltas.length === 0) {
+        ctx.fillStyle = '#b2bec3';
+        ctx.font = `14px ${getComputedStyle(document.body).fontFamily}`;
+        ctx.textAlign = 'center';
+        ctx.fillText('No timing data', W / 2, H / 2);
+        return;
+      }
+
+      // Bin the deltas
+      const binCount = 21; // -tolerance to +tolerance
+      const binWidth = (tolerance * 2) / binCount;
+      const bins = new Array(binCount).fill(0);
+
+      for (const d of deltas) {
+        const idx = Math.floor((d + tolerance) / binWidth);
+        if (idx >= 0 && idx < binCount) bins[idx]++;
+      }
+
+      const maxBin = Math.max(1, ...bins);
+      const barW = (W - 40) / binCount;
+      const barMaxH = H - 30;
+
+      // Background
+      ctx.fillStyle = '#f8f9fd';
+      ctx.fillRect(0, 0, W, H);
+
+      // Center line
+      const centerX = 20 + (binCount / 2) * barW;
+      ctx.strokeStyle = 'rgba(108, 92, 231, 0.3)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 3]);
+      ctx.beginPath();
+      ctx.moveTo(centerX, 0);
+      ctx.lineTo(centerX, H - 20);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Bars
+      for (let i = 0; i < binCount; i++) {
+        const barH = (bins[i] / maxBin) * barMaxH;
+        const x = 20 + i * barW;
+        const y = H - 20 - barH;
+
+        // Color based on position
+        const binCenter = -tolerance + (i + 0.5) * binWidth;
+        const absBinCenter = Math.abs(binCenter);
+        if (absBinCenter < PERFECT_WINDOW) {
+          ctx.fillStyle = '#00b894';
+        } else if (absBinCenter < tolerance * 0.6) {
+          ctx.fillStyle = '#fdcb6e';
+        } else {
+          ctx.fillStyle = '#d63031';
+        }
+
+        ctx.fillRect(x + 1, y, barW - 2, barH);
+      }
+
+      // Labels
+      ctx.fillStyle = '#b2bec3';
+      ctx.font = `9px ${getComputedStyle(document.body).fontFamily}`;
+      ctx.textAlign = 'center';
+      ctx.fillText(`-${tolerance}ms`, 20, H - 4);
+      ctx.fillText('0', centerX, H - 4);
+      ctx.fillText(`+${tolerance}ms`, 20 + binCount * barW, H - 4);
+
+      ctx.textAlign = 'left';
+      ctx.fillText('Early', 4, 12);
+      ctx.textAlign = 'right';
+      ctx.fillText('Late', W - 4, 12);
+    }
+
+    /* ---------------------------------------------------------- */
+    /*  Bootstrap                                                  */
+    /* ---------------------------------------------------------- */
+
+    init();
+  </script>
+</body>
+</html>

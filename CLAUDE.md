@@ -26,10 +26,14 @@ music-theory-games/
 │   └── index.html         # Game page (inline CSS/JS)
 ├── melody/                # Melody echo game
 │   └── index.html         # Game page (inline CSS/JS)
-└── rhythm/                # Rhythm training game
-    ├── index.html         # Game page
-    ├── rhythm.js          # Game logic — EKG metronome, clap detection, scoring
-    └── styles.css         # Game-specific styles
+├── rhythm/                # Rhythm training game
+│   ├── index.html         # Game page
+│   ├── rhythm.js          # Game logic — EKG metronome, clap detection, scoring
+│   └── styles.css         # Game-specific styles
+└── strumming/             # Guitar strumming pattern game
+    ├── index.html         # Game page (inline CSS/JS)
+    ├── patterns.js        # Strumming pattern definitions & custom pattern storage
+    └── detection.js       # Onset detection (RMS + spectral flux)
 ```
 
 ## Technology Choices
@@ -385,6 +389,127 @@ SETUP → COUNT_IN → PLAYING → (RESULTS if test mode)
 - `ONSET_COOLDOWN_MS` (200) — Minimum ms between detected onsets
 - `TOLERANCE` — Per difficulty: easy 100ms, medium 50ms, hard 25ms
 - `LATENCY_COMPENSATION_MS` (0) — Audio input latency offset
+
+## Strumming — Guitar Strumming Pattern Game
+
+### Overview
+
+Play along to strumming patterns on guitar. The app displays a scrolling timeline of the target pattern and uses microphone onset detection to evaluate the user's timing accuracy. Patterns are defined as eighth-note grids (8 slots per measure of 4/4 time).
+
+### File Structure
+
+- `strumming/index.html` — Game page with inline `<style>` and `<script type="module">`.
+- `strumming/patterns.js` — Pattern data definitions and custom pattern localStorage API.
+- `strumming/detection.js` — Onset detection module (RMS + spectral flux).
+
+### Game Modes
+
+1. **Practice Mode** — Pattern loops continuously. No scoring. Real-time feedback on every strum. "Slow Down" button drops BPM by 10. Summary after each loop. Pause/change tempo/switch patterns anytime.
+2. **Test Mode** — Play for 4 measures. Scoring: perfect (±10ms) = 3 pts, within tolerance = 2 pts, miss = 0 pts. Streak tracking with bonus points at 5+. Results screen with accuracy %, timing histogram, and leaderboard.
+
+### Difficulty Levels
+
+| Level  | Tolerance | Lookahead        | Metronome          |
+|--------|-----------|------------------|--------------------|
+| Easy   | ±100ms    | 2 measures ahead | Audible + visual   |
+| Medium | ±60ms     | 1 measure ahead  | Audible + visual   |
+| Hard   | ±30ms     | Current beat     | Visual only (optional audible toggle) |
+
+### Built-In Patterns
+
+| Pattern               | Grid               | Suggested BPM |
+|-----------------------|--------------------|---------------|
+| Basic 4/4 Downstrokes | D - D - D - D -    | 60–100        |
+| Eighth Notes          | D U D U D U D U    | 50–90         |
+| Universal Strum       | D - D U - U D U    | 70–120        |
+| Rock Strum            | D - D U D - D U    | 80–130        |
+| Reggae Offbeat        | - U - U - U - U    | 60–100        |
+
+### patterns.js
+
+Exports pattern data and custom pattern CRUD.
+
+**Data model** (`StrumPattern`):
+- `id` — Unique identifier string.
+- `name` — Display name.
+- `description` — Brief UI description.
+- `grid` — 8-element array of `'D'`, `'U'`, or `'-'`.
+- `suggestedBpmRange` — `[min, max]` BPM range.
+- `tips` — Playing tips string.
+- `builtIn` — `true` for starter patterns, `false` for custom.
+
+**Key exports:**
+- `BUILT_IN_PATTERNS` — Array of 5 starter patterns.
+- `getAllPatterns()` — Built-in + custom patterns.
+- `getPatternById(id)` — Find pattern by id.
+- `getCustomPatterns()` / `saveCustomPattern(pattern)` / `deleteCustomPattern(id)` — Custom pattern localStorage CRUD.
+- `gridToString(grid)` — Format grid for display.
+
+**Storage:** `mtt_strumming_custom_patterns` — JSON array in localStorage.
+
+### detection.js
+
+Onset detection for guitar strums using Web Audio API.
+
+**Algorithm:** Two complementary signals combined:
+1. **RMS amplitude spike** — Monitors `getFloatTimeDomainData()`, detects threshold crossing from below.
+2. **Spectral flux** — Computes half-wave rectified difference of frequency bins between frames via `getFloatFrequencyData()`. Good for guitar transients where amplitude alone may be ambiguous.
+
+Either signal can trigger an onset, subject to minimum inter-onset interval (~80ms).
+
+**Key exports:**
+- `startDetection(audioCtx, onOnset)` — Start mic, return `Promise<boolean>` (true if mic granted).
+- `stopDetection()` — Stop mic and cleanup.
+- `isDetecting()` — Check if running.
+
+**Constants (tunable):**
+- `RMS_THRESHOLD` (0.04) — Amplitude level for detection.
+- `SPECTRAL_FLUX_THRESHOLD` (0.15) — Spectral change level for detection.
+- `MIN_INTER_ONSET_MS` (80) — Minimum time between detected onsets.
+- `LATENCY_COMPENSATION_MS` (0) — Audio input latency offset.
+
+**NOTE:** Direction detection (down vs up strum) is planned for a future task. Currently only timing is detected.
+
+### strumming/index.html Structure
+
+Single HTML file with inline `<style>` and `<script type="module">`. Game logic is a state machine:
+
+```
+SETUP → COUNT_IN → PLAYING → (loops in practice / RESULTS in test)
+```
+
+**State management** is a plain object with direct DOM manipulation. No virtual DOM.
+
+**Visual display:**
+- **Scrolling timeline** (canvas) — Playhead fixed at ~35% from left. Target pattern arrows scroll right-to-left. User's detected strums appear on a second row aligned to actual timing.
+- **Color coding** — Green (within tolerance), orange/yellow (slightly off), red (miss/extra), ghost/faded (expected strum missed).
+- **Timing indicator bar** — Horizontal bar below the timeline. Rolling average of last 8 strums. Dot drifts left = early, right = late, center = on beat. Color changes: green (accurate), yellow (slightly off), red (way off).
+- **Beat light** — Flashes on downbeats/beats.
+- **Connecting lines** — Dashed lines between matched target↔detected pairs.
+
+**Key internal functions:**
+- `buildExpectedStrums()` — Generate expected strum times from pattern grid and BPM.
+- `registerStrum(time)` — Match detected strum to nearest expected, score it.
+- `checkMissedStrums()` — Mark unmatched expected strums as missed.
+- `renderFrame()` — Canvas render loop: grid lines, arrows, strum markers, connecting lines.
+- `drawArrow(ctx, x, y, direction, color, isMiss)` — Draw D/U arrow with styling.
+- `drawHistogram()` — Post-game timing distribution histogram.
+- `startMetronome()` — Scheduled click playback via Web Audio API oscillator.
+- `startCountIn()` — 4-beat count-in before game starts.
+
+### Integration
+
+- **Game ID:** `'strumming'`
+- **Leaderboard:** `shared/progress.js` — `saveScore()` / `renderLeaderboard()`.
+- **Adaptive difficulty:** `shared/ai.js` — `recordAttempt()` per strum with pattern name as skill. `selectWeighted()` suggests pattern on setup. `recordSession()` + `getSessionFeedback()` for post-session AI tutor.
+- **Hub:** Card added to main `index.html`.
+
+### Planned Future Additions
+
+- **Direction detection** — Detect down vs up strum direction from spectral/temporal analysis. Score both timing and direction.
+- **Audio latency calibration** — Calibration routine to measure and compensate for mic input latency.
+- **Custom pattern builder UI** — Let users create, edit, and share custom strumming patterns. Data model already supports this via `patterns.js`.
+- **Detector tuning tool** — Debug/calibration view showing raw RMS, spectral flux, and onset triggers in real-time.
 
 ## Conventions
 
