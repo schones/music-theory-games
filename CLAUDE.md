@@ -33,7 +33,8 @@ music-theory-games/
 └── strumming/             # Guitar strumming pattern game
     ├── index.html         # Game page (inline CSS/JS)
     ├── patterns.js        # Strumming pattern definitions & custom pattern storage
-    └── detection.js       # Onset detection (RMS + spectral flux)
+    ├── detection.js       # Onset detection (RMS + spectral flux) + direction classification
+    └── calibration.js     # Strum direction calibration flow & spectral helpers
 ```
 
 ## Technology Choices
@@ -400,7 +401,8 @@ Play along to strumming patterns on guitar. The app displays a scrolling timelin
 
 - `strumming/index.html` — Game page with inline `<style>` and `<script type="module">`.
 - `strumming/patterns.js` — Pattern data definitions and custom pattern localStorage API.
-- `strumming/detection.js` — Onset detection module (RMS + spectral flux).
+- `strumming/detection.js` — Onset detection module (RMS + spectral flux) + direction classification.
+- `strumming/calibration.js` — Strum direction calibration flow, spectral helpers, localStorage persistence.
 
 ### Game Modes
 
@@ -409,11 +411,11 @@ Play along to strumming patterns on guitar. The app displays a scrolling timelin
 
 ### Difficulty Levels
 
-| Level  | Tolerance | Lookahead        | Metronome          |
-|--------|-----------|------------------|--------------------|
-| Easy   | ±100ms    | 2 measures ahead | Audible + visual   |
-| Medium | ±60ms     | 1 measure ahead  | Audible + visual   |
-| Hard   | ±30ms     | Current beat     | Visual only (optional audible toggle) |
+| Level  | Tolerance | Lookahead        | Direction Scoring | Metronome          |
+|--------|-----------|------------------|-------------------|--------------------|
+| Easy   | ±100ms    | 2 measures ahead | Ignored           | Audible + visual   |
+| Medium | ±60ms     | 1 measure ahead  | +1 bonus correct  | Audible + visual   |
+| Hard   | ±30ms     | Current beat     | +1 correct / -1 wrong (high-conf) | Visual only (optional audible toggle) |
 
 ### Built-In Patterns
 
@@ -449,26 +451,62 @@ Exports pattern data and custom pattern CRUD.
 
 ### detection.js
 
-Onset detection for guitar strums using Web Audio API.
+Onset detection and direction classification for guitar strums using Web Audio API.
 
-**Algorithm:** Two complementary signals combined:
+**Onset algorithm:** Two complementary signals combined:
 1. **RMS amplitude spike** — Monitors `getFloatTimeDomainData()`, detects threshold crossing from below.
 2. **Spectral flux** — Computes half-wave rectified difference of frequency bins between frames via `getFloatFrequencyData()`. Good for guitar transients where amplitude alone may be ambiguous.
 
 Either signal can trigger an onset, subject to minimum inter-onset interval (~80ms).
 
+**Direction classification:** On each confirmed onset, two spectral features are computed from the current frequency frame and compared against thresholds (from calibration data or defaults):
+1. **Spectral centroid** — Below threshold → D, above → U. Down strums strike thicker strings first, producing a lower centroid.
+2. **Low/high energy ratio** — Above threshold (more bass) → D, below → U.
+
+When both features agree, confidence is boosted (+0.15). When they disagree, the feature with higher individual confidence wins at 0.6× penalty. Below `DIRECTION_CONFIDENCE_MIN` (0.3), direction is returned as `null`.
+
 **Key exports:**
-- `startDetection(audioCtx, onOnset)` — Start mic, return `Promise<boolean>` (true if mic granted).
+- `startDetection(audioCtx, onOnset)` — Start mic, return `Promise<boolean>` (true if mic granted). Callback signature: `onOnset(time, direction, confidence)` where `direction` is `'D'`|`'U'`|`null` and `confidence` is `0.0-1.0`.
 - `stopDetection()` — Stop mic and cleanup.
 - `isDetecting()` — Check if running.
 
 **Constants (tunable):**
 - `RMS_THRESHOLD` (0.04) — Amplitude level for detection.
-- `SPECTRAL_FLUX_THRESHOLD` (0.15) — Spectral change level for detection.
+- `SPECTRAL_FLUX_THRESHOLD` (0.5) — Spectral change level for detection.
 - `MIN_INTER_ONSET_MS` (80) — Minimum time between detected onsets.
 - `LATENCY_COMPENSATION_MS` (0) — Audio input latency offset.
+- `DEFAULT_CENTROID_THRESHOLD` (750) — Fallback centroid divider when no calibration.
+- `DEFAULT_RATIO_THRESHOLD` (2.0) — Fallback ratio divider when no calibration.
+- `DIRECTION_CONFIDENCE_MIN` (0.3) — Below this, direction is `null`.
 
-**NOTE:** Direction detection (down vs up strum) is planned for a future task. Currently only timing is detected.
+### calibration.js
+
+Guided calibration flow for strum direction detection. Records spectral signatures of down and up strums to compute per-user thresholds.
+
+**Calibration flow:**
+1. Prompt user to strum DOWN 4 times. Capture spectral centroid and low/high energy ratio on each onset.
+2. Prompt user to strum UP 4 times. Same capture.
+3. Compute thresholds: `centroidThreshold = (downMean + upMean) / 2`, `ratioThreshold = (downRatio + upRatio) / 2`.
+4. Save to localStorage.
+
+**Key exports:**
+- `getCalibrationData()` → `CalibrationData | null`
+- `hasCalibration()` → `boolean`
+- `clearCalibration()` → `void`
+- `runCalibration(audioCtx, analyser, callbacks, signal?)` → `Promise<CalibrationData | null>` — Accepts optional `AbortSignal` for cancellation.
+- `computeSpectralCentroid(freqBuffer, sampleRate, fftSize)` → `number` — Reused by detection.js.
+- `computeLowHighRatio(freqBuffer, sampleRate, fftSize, cutoffHz)` → `number` — Reused by detection.js.
+
+**Storage:** `mtt_strumming_calibration` — JSON object with `CalibrationData` shape:
+```json
+{
+  "downCentroidMean": 620.5, "downCentroidStd": 45.2,
+  "upCentroidMean": 890.3,   "upCentroidStd": 52.1,
+  "downLowHighRatio": 2.8,   "upLowHighRatio": 1.2,
+  "centroidThreshold": 755.4, "ratioThreshold": 2.0,
+  "date": "2026-02-19T..."
+}
+```
 
 ### strumming/index.html Structure
 
@@ -482,7 +520,7 @@ SETUP → COUNT_IN → PLAYING → (loops in practice / RESULTS in test)
 
 **Visual display:**
 - **Scrolling timeline** (canvas) — Playhead fixed at ~35% from left. Target pattern arrows scroll right-to-left. User's detected strums appear on a second row aligned to actual timing.
-- **Color coding** — Green (within tolerance), orange/yellow (slightly off), red (miss/extra), ghost/faded (expected strum missed).
+- **Color coding** — Easy mode: green (within tolerance), yellow (slightly off), red (miss/extra). Medium/hard: green (correct direction), yellow (unknown direction), orange (wrong direction), red (extra). Ghost/faded for missed expected strums. Detected strums render as D/U arrows when direction is known, diamonds when unknown (spacebar input).
 - **Timing indicator bar** — Horizontal bar below the timeline. Rolling average of last 8 strums. Dot drifts left = early, right = late, center = on beat. Color changes: green (accurate), yellow (slightly off), red (way off).
 - **Beat light** — Flashes on downbeats/beats.
 - **Connecting lines** — Dashed lines between matched target↔detected pairs.
@@ -504,9 +542,24 @@ SETUP → COUNT_IN → PLAYING → (loops in practice / RESULTS in test)
 - **Adaptive difficulty:** `shared/ai.js` — `recordAttempt()` per strum with pattern name as skill. `selectWeighted()` suggests pattern on setup. `recordSession()` + `getSessionFeedback()` for post-session AI tutor.
 - **Hub:** Card added to main `index.html`.
 
+### Direction Detection
+
+Strum direction (down vs up) is classified on each detected onset using two spectral features computed from the frequency frame at the moment of the onset:
+
+| Feature | Down Strum | Up Strum |
+|---------|-----------|----------|
+| Spectral centroid | Lower (thicker strings struck first) | Higher |
+| Low/high energy ratio (below/above 400Hz) | Higher (more bass) | Lower |
+
+**Per-difficulty scoring:**
+- **Easy** — Direction ignored. Timing-only scoring (unchanged).
+- **Medium** — +1 bonus point for correct direction. No penalty for wrong.
+- **Hard** — +1 for correct direction with high confidence (≥0.7). -1 for wrong direction with high confidence. Score floored at 0.
+
+**Calibration** — Optional guided flow in `calibration.js`. User strums 4 down + 4 up. Thresholds computed as midpoints between the two distributions. Stored in localStorage. Without calibration, hardcoded defaults are used.
+
 ### Planned Future Additions
 
-- **Direction detection** — Detect down vs up strum direction from spectral/temporal analysis. Score both timing and direction.
 - **Audio latency calibration** — Calibration routine to measure and compensate for mic input latency.
 - **Custom pattern builder UI** — Let users create, edit, and share custom strumming patterns. Data model already supports this via `patterns.js`.
 - **Detector tuning tool** — Debug/calibration view showing raw RMS, spectral flux, and onset triggers in real-time.
