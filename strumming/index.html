@@ -317,23 +317,29 @@
     }
 
     /* --- Practice Summary Overlay (shown on game screen after stop) --- */
+    .strum-practice-summary[hidden] {
+      display: none;
+    }
+
     .strum-practice-summary {
-      position: absolute;
+      position: fixed;
       inset: 0;
-      background: rgba(248, 249, 253, 0.96);
-      border-radius: var(--radius-lg);
+      background: rgba(0, 0, 0, 0.5);
       display: flex;
       align-items: center;
       justify-content: center;
-      z-index: 10;
+      z-index: 1000;
       animation: fade-in 0.25s ease-out;
     }
 
     .strum-practice-summary__inner {
       max-width: 480px;
-      width: 100%;
+      width: 90%;
       padding: var(--space-xl);
       text-align: center;
+      background: var(--color-bg-card);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-lg);
     }
 
     .strum-practice-summary__title {
@@ -632,10 +638,16 @@
           <button id="btn-slow-down" class="btn btn--secondary btn--small" type="button">
             Slow Down (-10 BPM)
           </button>
+          <button id="btn-toggle-click" class="btn btn--secondary btn--small" type="button">
+            &#x1f507; Click: Off
+          </button>
           <button id="btn-stop" class="btn btn--danger">
             Stop
           </button>
         </div>
+        <p class="strum-hint" style="margin-top: var(--space-sm); margin-bottom: 0;">
+          If using audible click, use headphones to ensure accurate strum detection.
+        </p>
 
         <!-- Practice Summary Overlay (shown after stopping in practice mode) -->
         <div id="practice-summary" class="strum-practice-summary" hidden>
@@ -903,6 +915,7 @@
         setBpm(Math.max(40, state.bpm - 10));
         $('stat-bpm').textContent = state.bpm;
       });
+      $('btn-toggle-click').addEventListener('click', toggleClick);
 
       // Results
       $('btn-play-again').addEventListener('click', restartGame);
@@ -964,6 +977,13 @@
       $('bpm-slider').value = clamped;
       $('bpm-input').value = clamped;
       $('bpm-value').textContent = clamped;
+    }
+
+    function toggleClick() {
+      state.gameplayClickEnabled = !state.gameplayClickEnabled;
+      $('btn-toggle-click').innerHTML = state.gameplayClickEnabled
+        ? '&#x1f50a; Click: On'
+        : '&#x1f507; Click: Off';
     }
 
     /* ---------------------------------------------------------- */
@@ -1048,6 +1068,11 @@
 
       // Show/hide practice controls
       $('btn-slow-down').hidden = state.mode !== 'practice';
+
+      // Sync click toggle button label with initial state
+      $('btn-toggle-click').innerHTML = state.gameplayClickEnabled
+        ? '&#x1f50a; Click: On'
+        : '&#x1f507; Click: Off';
 
       // Start count-in
       state.isCountIn = true;
