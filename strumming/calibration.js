@@ -20,8 +20,16 @@
 const STORAGE_KEY = 'mtt_strumming_calibration';
 const STRUMS_PER_PHASE = 4;
 const ONSET_COOLDOWN_MS = 300;
-const RMS_THRESHOLD = 0.04;
 const LOW_HIGH_CUTOFF_HZ = 400;
+
+// Calibration uses a higher RMS threshold than gameplay (0.04) to require
+// deliberate, full strums and reject light taps on the guitar body.
+export const CALIBRATION_RMS_THRESHOLD = 0.12;
+
+// After onset detection, signal must sustain above this level for
+// MIN_SUSTAIN_MS to confirm a real strum (taps decay much faster).
+const SUSTAIN_RMS_THRESHOLD = 0.04;
+const MIN_SUSTAIN_MS = 50;
 
 /* ---------------------------------------------------------- */
 /*  Spectral Helpers (exported — reused by detection.js)       */
@@ -136,7 +144,8 @@ export function clearCalibration() {
  *
  * The caller provides `callbacks` to drive UI updates:
  *   - `onPhase(phase)` — called with `'down'` then `'up'`
- *   - `onStrum(phase, count)` — called after each detected strum
+ *   - `onStrum(phase, count)` — called after each confirmed strum
+ *   - `onLevel(rms)` — called every frame with current RMS amplitude (for meter display)
  *   - `onComplete(data)` — called with the final CalibrationData
  *   - `onError(msg)` — called if something goes wrong
  *
@@ -157,13 +166,17 @@ export async function runCalibration(audioCtx, analyser, callbacks, signal) {
   const downSamples = [];
   const upSamples = [];
 
-  // Helper: wait for N strums and capture spectral snapshots
+  // Helper: wait for N strums and capture spectral snapshots.
+  // Uses a higher RMS threshold than gameplay and verifies that the signal
+  // sustains for MIN_SUSTAIN_MS — this rejects light taps on the guitar body
+  // that decay almost instantly while accepting real strums that ring out.
   function collectStrums(phase, count) {
     return new Promise((resolve, reject) => {
       let collected = 0;
       let prevRMS = 0;
       let lastOnsetTime = 0;
       let rafId = 0;
+      let pendingOnset = null; // { time, centroid, ratio } — awaiting sustain check
 
       function onAbort() {
         cancelAnimationFrame(rafId);
@@ -180,10 +193,41 @@ export async function runCalibration(audioCtx, analyser, callbacks, signal) {
 
         analyser.getFloatTimeDomainData(timeDomainBuffer);
         const rms = computeRMSLocal(timeDomainBuffer);
-
         const now = performance.now();
 
-        if (rms > RMS_THRESHOLD && prevRMS <= RMS_THRESHOLD && (now - lastOnsetTime > ONSET_COOLDOWN_MS)) {
+        // Report amplitude level for visual feedback
+        if (callbacks.onLevel) callbacks.onLevel(rms);
+
+        // Check pending onset sustain (minimum duration check)
+        if (pendingOnset) {
+          if (now - pendingOnset.time >= MIN_SUSTAIN_MS) {
+            if (rms >= SUSTAIN_RMS_THRESHOLD) {
+              // Signal still present after sustain period — confirmed strum
+              const samples = phase === 'down' ? downSamples : upSamples;
+              samples.push({ centroid: pendingOnset.centroid, ratio: pendingOnset.ratio });
+              collected++;
+              pendingOnset = null;
+
+              if (callbacks.onStrum) callbacks.onStrum(phase, collected);
+
+              if (collected >= count) {
+                if (signal) signal.removeEventListener('abort', onAbort);
+                resolve();
+                return;
+              }
+            } else {
+              // Signal decayed too fast — likely a tap, not a strum
+              pendingOnset = null;
+            }
+          }
+          // Still within sustain window — keep waiting
+          prevRMS = rms;
+          rafId = requestAnimationFrame(loop);
+          return;
+        }
+
+        // Detect new onset using higher calibration threshold
+        if (rms > CALIBRATION_RMS_THRESHOLD && prevRMS <= CALIBRATION_RMS_THRESHOLD && (now - lastOnsetTime > ONSET_COOLDOWN_MS)) {
           lastOnsetTime = now;
 
           // Capture spectral snapshot
@@ -191,17 +235,8 @@ export async function runCalibration(audioCtx, analyser, callbacks, signal) {
           const centroid = computeSpectralCentroid(freqBuffer, sampleRate, fftSize);
           const ratio = computeLowHighRatio(freqBuffer, sampleRate, fftSize);
 
-          const samples = phase === 'down' ? downSamples : upSamples;
-          samples.push({ centroid, ratio });
-          collected++;
-
-          if (callbacks.onStrum) callbacks.onStrum(phase, collected);
-
-          if (collected >= count) {
-            if (signal) signal.removeEventListener('abort', onAbort);
-            resolve();
-            return;
-          }
+          // Start sustain verification
+          pendingOnset = { time: now, centroid, ratio };
         }
 
         prevRMS = rms;

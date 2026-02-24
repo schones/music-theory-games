@@ -513,6 +513,40 @@
       margin-bottom: var(--space-lg);
     }
 
+    .strum-calibration-overlay__meter-label {
+      font-size: var(--font-size-xs);
+      color: var(--color-text-muted);
+      text-align: left;
+      margin-bottom: var(--space-xs);
+    }
+
+    .strum-calibration-overlay__meter {
+      position: relative;
+      width: 100%;
+      height: 16px;
+      background: var(--color-border);
+      border-radius: var(--radius-full);
+      overflow: hidden;
+      margin-bottom: var(--space-lg);
+    }
+
+    .strum-calibration-overlay__meter-fill {
+      height: 100%;
+      width: 0%;
+      border-radius: var(--radius-full);
+      background: var(--color-warning);
+      transition: width 0.06s ease;
+    }
+
+    .strum-calibration-overlay__meter-threshold {
+      position: absolute;
+      top: 0;
+      height: 100%;
+      width: 2px;
+      background: rgba(0, 0, 0, 0.4);
+      z-index: 1;
+    }
+
     /* --- Responsive --- */
     @media (max-width: 480px) {
       .strum-setup__grid {
@@ -845,7 +879,12 @@
         <div id="cal-phase" class="strum-calibration-overlay__phase">Strum DOWN</div>
         <div id="cal-count" class="strum-calibration-overlay__count">0 / 4</div>
         <div id="cal-hint" class="strum-calibration-overlay__hint">
-          Strum your guitar downward near the microphone
+          Strum firmly across all strings — downward stroke
+        </div>
+        <div class="strum-calibration-overlay__meter-label">Volume — strum until the bar turns green</div>
+        <div class="strum-calibration-overlay__meter">
+          <div id="cal-meter-fill" class="strum-calibration-overlay__meter-fill"></div>
+          <div id="cal-meter-threshold" class="strum-calibration-overlay__meter-threshold"></div>
         </div>
         <button id="btn-cancel-calibration" class="btn btn--secondary" type="button">
           Cancel
@@ -865,8 +904,8 @@
       getSessionFeedback, isAIAvailable
     } from '../shared/ai.js';
     import { getAllPatterns, getPatternById, BUILT_IN_PATTERNS } from './patterns.js';
-    import { startDetection, stopDetection } from './detection.js';
-    import { hasCalibration, runCalibration, clearCalibration } from './calibration.js';
+    import { startDetection, stopDetection, setDetectionBpm } from './detection.js';
+    import { hasCalibration, runCalibration, clearCalibration, CALIBRATION_RMS_THRESHOLD } from './calibration.js';
 
     /* ---------------------------------------------------------- */
     /*  Constants                                                  */
@@ -1043,6 +1082,7 @@
       $('btn-slow-down').addEventListener('click', () => {
         setBpm(Math.max(40, state.bpm - 10));
         $('stat-bpm').textContent = state.bpm;
+        setDetectionBpm(state.bpm);
       });
       $('btn-toggle-click').addEventListener('click', toggleClick);
 
@@ -1154,10 +1194,10 @@
         await state.audioCtx.resume();
       }
 
-      // Start mic detection
+      // Start mic detection (pass BPM so lockout scales with tempo)
       const micOk = await startDetection(state.audioCtx, (time, direction, confidence) => {
         if (state.isPlaying) registerStrum(time, direction, confidence);
-      });
+      }, state.bpm);
 
       if (!micOk) {
         // Continue without mic — user can use spacebar
@@ -1900,11 +1940,6 @@
       }
       ctx.fill();
 
-      // Label
-      ctx.font = `bold 10px ${getComputedStyle(document.body).fontFamily}`;
-      ctx.textAlign = 'center';
-      ctx.fillText(direction, x, direction === 'D' ? y - size - 4 : y + size + 12);
-
       ctx.globalAlpha = 1;
     }
 
@@ -2213,8 +2248,11 @@
       const source = state.audioCtx.createMediaStreamSource(micStream);
       source.connect(analyser);
 
-      // Show overlay
+      // Show overlay and set up meter
       $('calibration-overlay').hidden = false;
+      $('cal-meter-fill').style.width = '0%';
+      const meterMax = 0.3;
+      $('cal-meter-threshold').style.left = (CALIBRATION_RMS_THRESHOLD / meterMax * 100) + '%';
 
       calibrationAbortController = new AbortController();
 
@@ -2222,16 +2260,23 @@
         onPhase(phase) {
           if (phase === 'down') {
             $('cal-phase').textContent = 'Strum DOWN';
-            $('cal-hint').textContent = 'Strum your guitar downward near the microphone';
+            $('cal-hint').textContent = 'Strum firmly across all strings — downward stroke';
             $('cal-count').textContent = '0 / 4';
           } else {
             $('cal-phase').textContent = 'Strum UP';
-            $('cal-hint').textContent = 'Strum your guitar upward near the microphone';
+            $('cal-hint').textContent = 'Strum firmly across all strings — upward stroke';
             $('cal-count').textContent = '0 / 4';
           }
         },
         onStrum(phase, count) {
           $('cal-count').textContent = `${count} / 4`;
+        },
+        onLevel(rms) {
+          const pct = Math.min(100, (rms / meterMax) * 100);
+          const fill = $('cal-meter-fill');
+          fill.style.width = pct + '%';
+          fill.style.background = rms >= CALIBRATION_RMS_THRESHOLD
+            ? 'var(--color-success)' : 'var(--color-warning)';
         },
         onComplete() {
           // Will be handled below

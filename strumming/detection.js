@@ -2,9 +2,20 @@
  * Guitar Strum Onset Detection Module
  * strumming/detection.js
  *
- * Detects strum timing from microphone input using two complementary signals:
- * 1. RMS amplitude spike detection (primary)
- * 2. Spectral flux onset detection (secondary, better for guitar transients)
+ * Detects strum timing using a simple attack-only approach:
+ *   1. Listen for RMS above threshold (attack transient).
+ *   2. Fire onset, then enter hard lockout — NO audio analysis at all.
+ *   3. When lockout expires, resume fresh listening.
+ *
+ * The lockout ensures sustained string ring can never retrigger because
+ * no audio is read during the dead zone. By the time listening resumes,
+ * the previous strum has decayed below threshold.
+ *
+ * Additional filtering:
+ *   - After an upstrum, lockout is extended by 1.2× because upstrums cause
+ *     more bass string sympathetic vibration that can mimic a downstrum.
+ *   - When lockout expires, if the new onset RMS is significantly weaker than
+ *     the previous onset (< 40%), it is suppressed as residual vibration.
  *
  * Also classifies strum direction (down vs up) using spectral centroid and
  * low/high energy ratio features, optionally calibrated per-user.
@@ -20,12 +31,27 @@ import {
 /*  Constants (tunable)                                       */
 /* ---------------------------------------------------------- */
 
-const RMS_THRESHOLD = 0.04;
-const NOISE_FLOOR_RMS = 0.01;
-const SPECTRAL_FLUX_THRESHOLD = 0.5;
-const MIN_INTER_ONSET_MS = 80;
 const FFT_SIZE = 2048;
 const LATENCY_COMPENSATION_MS = 0;
+
+// Minimum RMS for a guitar attack transient to trigger an onset.
+const RMS_THRESHOLD = 0.07;
+
+// Hard lockout: after an onset, ALL audio analysis stops for this many ms.
+// No getFloatTimeDomainData, no getFloatFrequencyData — complete silence.
+// When lockout expires, prevRMS resets to 0 so the first audio frame with
+// any signal above RMS_THRESHOLD will fire immediately (fresh attack).
+// Dynamically scaled to Math.min(DEFAULT_LOCKOUT_MS, eighthNoteMs * 0.7).
+const DEFAULT_LOCKOUT_MS = 350;
+
+// After an upstrum, extend lockout by this factor. Upstrums cause bass
+// strings to ring sympathetically, producing low-frequency energy that
+// the direction classifier misreads as a downstrum.
+const UPSTRUM_LOCKOUT_MULTIPLIER = 1.2;
+
+// If a new onset's RMS is below this fraction of the previous onset's peak,
+// suppress it — it's likely residual vibration, not a fresh attack.
+const PEAK_SUPPRESSION_RATIO = 0.4;
 
 // Direction classification defaults (used when no calibration data exists)
 const LOW_HIGH_CUTOFF_HZ = 400;
@@ -36,22 +62,6 @@ const DIRECTION_CONFIDENCE_MIN = 0.3;
 /* ---------------------------------------------------------- */
 /*  Detector State                                            */
 /* ---------------------------------------------------------- */
-
-/**
- * @typedef {Object} DetectorState
- * @property {AudioContext}    audioCtx
- * @property {MediaStream}     micStream
- * @property {AnalyserNode}    analyser
- * @property {Float32Array}    timeDomainBuffer
- * @property {Float32Array}    freqBuffer
- * @property {Float32Array}    prevFreqBuffer
- * @property {number}          lastOnsetTime
- * @property {number}          prevRMS
- * @property {boolean}         running
- * @property {number}          animFrameId
- * @property {function|null}   onOnset - callback(time, direction, confidence)
- * @property {Object|null}     calibration - CalibrationData from calibration.js
- */
 
 let detector = null;
 
@@ -66,9 +76,11 @@ let detector = null;
  * @param {function} onOnset - Callback called with (timestamp, direction, confidence)
  *                             on each detected strum. direction is 'D'|'U'|null,
  *                             confidence is 0.0-1.0.
+ * @param {number} [bpm=0] - Current tempo. Used to compute lockout duration.
+ *                            Pass 0 to use DEFAULT_LOCKOUT_MS.
  * @returns {Promise<boolean>} true if mic access granted, false otherwise
  */
-export async function startDetection(audioCtx, onOnset) {
+export async function startDetection(audioCtx, onOnset, bpm = 0) {
   if (detector && detector.running) {
     stopDetection();
   }
@@ -89,9 +101,7 @@ export async function startDetection(audioCtx, onOnset) {
   source.connect(analyser);
 
   const timeDomainBuffer = new Float32Array(analyser.fftSize);
-  const freqBinCount = analyser.frequencyBinCount;
-  const freqBuffer = new Float32Array(freqBinCount);
-  const prevFreqBuffer = new Float32Array(freqBinCount);
+  const freqBuffer = new Float32Array(analyser.frequencyBinCount);
 
   // Load calibration data for direction classification
   const calibration = getCalibrationData();
@@ -103,9 +113,10 @@ export async function startDetection(audioCtx, onOnset) {
     source,
     timeDomainBuffer,
     freqBuffer,
-    prevFreqBuffer,
     lastOnsetTime: 0,
-    prevRMS: 0,
+    lastOnsetRMS: 0,
+    lastDirection: null,
+    lockoutMs: computeLockout(bpm),
     running: true,
     animFrameId: 0,
     onOnset,
@@ -149,6 +160,35 @@ export function isDetecting() {
   return detector !== null && detector.running;
 }
 
+/**
+ * Update the lockout duration for a new BPM.
+ * Call this whenever the tempo changes during gameplay.
+ *
+ * @param {number} bpm - Current tempo in beats per minute
+ */
+export function setDetectionBpm(bpm) {
+  if (detector) {
+    detector.lockoutMs = computeLockout(bpm);
+  }
+}
+
+/* ---------------------------------------------------------- */
+/*  Internal Helpers                                          */
+/* ---------------------------------------------------------- */
+
+/**
+ * Compute the lockout duration from a BPM value.
+ * Lockout = min(DEFAULT_LOCKOUT_MS, eighthNoteMs * 0.7).
+ *
+ * @param {number} bpm
+ * @returns {number} lockout in ms
+ */
+function computeLockout(bpm) {
+  if (!bpm || bpm <= 0) return DEFAULT_LOCKOUT_MS;
+  const eighthNoteMs = (60000 / bpm) / 2;
+  return Math.min(DEFAULT_LOCKOUT_MS, eighthNoteMs * 0.7);
+}
+
 /* ---------------------------------------------------------- */
 /*  Internal Detection Loop                                   */
 /* ---------------------------------------------------------- */
@@ -159,39 +199,49 @@ function detectLoop() {
   const d = detector;
   const now = performance.now();
 
-  // --- Signal 1: RMS amplitude ---
+  // --- Hard lockout ---
+  // After an onset, do NO audio analysis at all — complete dead zone.
+  // Guitar string sustain/decay cannot trigger anything during this period.
+  // After upstrums, lockout is extended to suppress bass string sympathetic ring.
+  const effectiveLockout = d.lastDirection === 'U'
+    ? d.lockoutMs * UPSTRUM_LOCKOUT_MULTIPLIER
+    : d.lockoutMs;
+
+  if (now - d.lastOnsetTime < effectiveLockout) {
+    d.animFrameId = requestAnimationFrame(detectLoop);
+    return;
+  }
+
+  // --- Read RMS ---
   d.analyser.getFloatTimeDomainData(d.timeDomainBuffer);
   const rms = computeRMS(d.timeDomainBuffer);
 
-  let rmsOnset = false;
-  if (rms > RMS_THRESHOLD && d.prevRMS <= RMS_THRESHOLD) {
-    rmsOnset = true;
-  }
-  d.prevRMS = rms;
+  // --- Onset detection ---
+  // Simple threshold check. After lockout expires this is the first audio
+  // read, so any attack transient above the threshold fires immediately.
+  // Sustained ring from a previous strum will have decayed during lockout.
+  if (rms > RMS_THRESHOLD) {
+    // --- Peak suppression ---
+    // If the new onset is much weaker than the previous one, it's likely
+    // residual vibration (e.g., bass strings ringing after an upstrum),
+    // not a genuine new attack. Suppress it and extend lockout.
+    if (d.lastOnsetRMS > 0 && rms < d.lastOnsetRMS * PEAK_SUPPRESSION_RATIO) {
+      console.log(`[detection] suppressed — rms: ${rms.toFixed(4)}, prev: ${d.lastOnsetRMS.toFixed(4)}, ratio: ${(rms / d.lastOnsetRMS).toFixed(2)}`);
+      d.lastOnsetTime = now;
+      d.animFrameId = requestAnimationFrame(detectLoop);
+      return;
+    }
 
-  // --- Signal 2: Spectral flux ---
-  d.analyser.getFloatFrequencyData(d.freqBuffer);
-  const flux = computeSpectralFlux(d.freqBuffer, d.prevFreqBuffer);
-
-  // Copy current spectrum to previous for next frame
-  d.prevFreqBuffer.set(d.freqBuffer);
-
-  const fluxOnset = flux > SPECTRAL_FLUX_THRESHOLD;
-
-  // --- Combined decision ---
-  // RMS onset alone is sufficient. Spectral flux only counts when there is
-  // actual audio energy (rms > NOISE_FLOOR_RMS) to avoid false positives from
-  // dB noise-floor fluctuations in a silent room.
-  const onset = rmsOnset || (fluxOnset && rms > NOISE_FLOOR_RMS);
-
-  if (onset && (now - d.lastOnsetTime > MIN_INTER_ONSET_MS)) {
     d.lastOnsetTime = now;
+    d.lastOnsetRMS = rms;
     const onsetTime = now - LATENCY_COMPENSATION_MS;
 
-    // Classify direction from the current spectral frame
+    // Read frequency data for direction classification
+    d.analyser.getFloatFrequencyData(d.freqBuffer);
     const { direction, confidence } = classifyDirection(d);
+    d.lastDirection = direction;
 
-    console.log(`[detection] onset — RMS: ${rms.toFixed(4)}, flux: ${flux.toFixed(4)}, trigger: ${rmsOnset ? 'rms' : 'flux'}, dir: ${direction}, conf: ${confidence.toFixed(2)}`);
+    console.log(`[detection] onset — rms: ${rms.toFixed(4)}, dir: ${direction}, conf: ${confidence.toFixed(2)}`);
 
     if (d.onOnset) {
       d.onOnset(onsetTime, direction, confidence);
@@ -290,24 +340,4 @@ function computeRMS(buffer) {
     sum += buffer[i] * buffer[i];
   }
   return Math.sqrt(sum / buffer.length);
-}
-
-/**
- * Compute spectral flux — the sum of positive frequency bin changes.
- * Only counts increases (half-wave rectified) to detect onsets, not offsets.
- *
- * @param {Float32Array} current  - Current frame's frequency data (dB)
- * @param {Float32Array} previous - Previous frame's frequency data (dB)
- * @returns {number}
- */
-function computeSpectralFlux(current, previous) {
-  let flux = 0;
-  for (let i = 0; i < current.length; i++) {
-    const diff = current[i] - previous[i];
-    if (diff > 0) {
-      flux += diff;
-    }
-  }
-  // Normalize by bin count to keep threshold scale-independent
-  return flux / current.length;
 }

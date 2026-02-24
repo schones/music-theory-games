@@ -453,11 +453,7 @@ Exports pattern data and custom pattern CRUD.
 
 Onset detection and direction classification for guitar strums using Web Audio API.
 
-**Onset algorithm:** Two complementary signals combined:
-1. **RMS amplitude spike** — Monitors `getFloatTimeDomainData()`, detects threshold crossing from below.
-2. **Spectral flux** — Computes half-wave rectified difference of frequency bins between frames via `getFloatFrequencyData()`. Good for guitar transients where amplitude alone may be ambiguous.
-
-Either signal can trigger an onset, subject to minimum inter-onset interval (~80ms).
+**Onset algorithm:** Attack-only with hard lockout and post-upstrum filtering. Two-state cycle: (1) **Listening** — read RMS each frame, fire onset when `rms > RMS_THRESHOLD` (0.07). (2) **Lockout** — no audio analysis at all (no `getFloatTimeDomainData`, no `getFloatFrequencyData`) for `lockoutMs` (tempo-adaptive, min 350ms). After upstrums, lockout is extended by 1.2× (`UPSTRUM_LOCKOUT_MULTIPLIER`) because bass strings vibrate sympathetically and produce low-frequency energy that mimics a downstrum. Additionally, when lockout expires, if the new onset's RMS is less than 40% of the previous onset's peak (`PEAK_SUPPRESSION_RATIO`), it is suppressed as residual vibration.
 
 **Direction classification:** On each confirmed onset, two spectral features are computed from the current frequency frame and compared against thresholds (from calibration data or defaults):
 1. **Spectral centroid** — Below threshold → D, above → U. Down strums strike thicker strings first, producing a lower centroid.
@@ -466,14 +462,18 @@ Either signal can trigger an onset, subject to minimum inter-onset interval (~80
 When both features agree, confidence is boosted (+0.15). When they disagree, the feature with higher individual confidence wins at 0.6× penalty. Below `DIRECTION_CONFIDENCE_MIN` (0.3), direction is returned as `null`.
 
 **Key exports:**
-- `startDetection(audioCtx, onOnset)` — Start mic, return `Promise<boolean>` (true if mic granted). Callback signature: `onOnset(time, direction, confidence)` where `direction` is `'D'`|`'U'`|`null` and `confidence` is `0.0-1.0`.
+- `startDetection(audioCtx, onOnset, bpm?)` — Start mic, return `Promise<boolean>` (true if mic granted). `bpm` sets the initial lockout duration. Callback signature: `onOnset(time, direction, confidence)` where `direction` is `'D'`|`'U'`|`null` and `confidence` is `0.0-1.0`.
 - `stopDetection()` — Stop mic and cleanup.
 - `isDetecting()` — Check if running.
+- `setDetectionBpm(bpm)` — Update lockout duration for a new tempo. Call when BPM changes during gameplay.
+
+**Lockout strategy:** After any detected onset, all audio input is completely ignored for `lockoutMs` milliseconds — no RMS checks, no spectral analysis, nothing. After upstrums, lockout is extended by 1.2× to suppress bass string sympathetic vibration. When lockout expires, the first frame above `RMS_THRESHOLD` fires — but only if its RMS is at least 40% of the previous onset's peak (otherwise suppressed as residual). Lockout is computed dynamically as `Math.min(DEFAULT_LOCKOUT_MS, eighthNoteMs * 0.7)` so it scales with tempo.
 
 **Constants (tunable):**
-- `RMS_THRESHOLD` (0.04) — Amplitude level for detection.
-- `SPECTRAL_FLUX_THRESHOLD` (0.5) — Spectral change level for detection.
-- `MIN_INTER_ONSET_MS` (80) — Minimum time between detected onsets.
+- `RMS_THRESHOLD` (0.07) — Minimum RMS amplitude for onset detection.
+- `DEFAULT_LOCKOUT_MS` (350) — Maximum lockout duration. Actual lockout is `min(350, eighthNoteMs * 0.7)`.
+- `UPSTRUM_LOCKOUT_MULTIPLIER` (1.2) — Lockout extension factor after upstrums.
+- `PEAK_SUPPRESSION_RATIO` (0.4) — New onset suppressed if RMS < previous peak × this.
 - `LATENCY_COMPENSATION_MS` (0) — Audio input latency offset.
 - `DEFAULT_CENTROID_THRESHOLD` (750) — Fallback centroid divider when no calibration.
 - `DEFAULT_RATIO_THRESHOLD` (2.0) — Fallback ratio divider when no calibration.
@@ -489,7 +489,16 @@ Guided calibration flow for strum direction detection. Records spectral signatur
 3. Compute thresholds: `centroidThreshold = (downMean + upMean) / 2`, `ratioThreshold = (downRatio + upRatio) / 2`.
 4. Save to localStorage.
 
+**Onset filtering (calibration-specific):** Calibration uses stricter onset detection than gameplay to ensure clean training data:
+- **Higher RMS threshold** — `CALIBRATION_RMS_THRESHOLD` (0.12) is 3× the gameplay threshold (0.04), requiring deliberate full strums.
+- **Minimum sustain check** — After onset detection, the signal must remain above `SUSTAIN_RMS_THRESHOLD` (0.04) for `MIN_SUSTAIN_MS` (50ms). Taps on the guitar body decay almost instantly and are rejected; real strums ring out and pass.
+- **Visual amplitude meter** — Real-time RMS level shown as a bar in the calibration overlay. Turns green when above the detection threshold. Helps users understand how firmly to strum.
+- **Instructional text** — "Strum firmly across all strings" guides users toward clean, full strums.
+
+**Callbacks:** `runCalibration` accepts `onPhase`, `onStrum`, `onLevel` (per-frame RMS for meter), `onComplete`, `onError`.
+
 **Key exports:**
+- `CALIBRATION_RMS_THRESHOLD` → `number` (0.12) — Exported for UI meter threshold display.
 - `getCalibrationData()` → `CalibrationData | null`
 - `hasCalibration()` → `boolean`
 - `clearCalibration()` → `void`
