@@ -1,0 +1,1605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pattern Detector — Music Theory Games</title>
+  <link rel="stylesheet" href="../shared/styles.css">
+  <style>
+    /* ============================================================
+       Pattern Detector Tool — Styles
+       Prefix: det-
+       ============================================================ */
+
+    .det-screen {
+      padding: var(--space-xl) 0 var(--space-3xl);
+      animation: fade-in 0.3s ease-out;
+    }
+
+    /* --- Setup Screen --- */
+    .det-setup {
+      max-width: 560px;
+      margin: 0 auto;
+      text-align: center;
+    }
+
+    .det-setup__instructions {
+      color: var(--color-text-light);
+      margin-bottom: var(--space-xl);
+      line-height: var(--line-height-base);
+    }
+
+    .det-setup__instructions ol {
+      text-align: left;
+      display: inline-block;
+      margin-top: var(--space-sm);
+    }
+
+    .det-setup__instructions li {
+      list-style: decimal;
+      margin-left: var(--space-lg);
+      margin-bottom: var(--space-xs);
+    }
+
+    /* --- Calibration Card (setup) --- */
+    .det-calibration {
+      background: var(--color-bg);
+      border-radius: var(--radius-md);
+      padding: var(--space-md);
+      margin-bottom: var(--space-xl);
+      text-align: left;
+    }
+
+    .det-calibration__header {
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-bold);
+      color: var(--color-text);
+      margin-bottom: var(--space-sm);
+    }
+
+    .det-calibration__row {
+      display: flex;
+      align-items: center;
+      gap: var(--space-md);
+      flex-wrap: wrap;
+    }
+
+    .det-calibration__status {
+      font-size: var(--font-size-sm);
+      color: var(--color-text-light);
+    }
+
+    .det-calibration__status--ok {
+      color: var(--color-success);
+    }
+
+    /* --- Recording Screen --- */
+    .det-recording {
+      max-width: 560px;
+      margin: 0 auto;
+      text-align: center;
+    }
+
+    .det-recording-indicator {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background: var(--color-error);
+      margin: 0 auto var(--space-lg);
+      animation: det-pulse 1.2s ease-in-out infinite;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .det-recording-indicator__dot {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: var(--color-bg-card);
+    }
+
+    @keyframes det-pulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.1); opacity: 0.7; }
+    }
+
+    .det-recording__timer {
+      font-size: var(--font-size-2xl);
+      font-weight: var(--font-weight-extra-bold);
+      color: var(--color-text);
+      margin-bottom: var(--space-md);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .det-recording__stats {
+      display: flex;
+      justify-content: center;
+      gap: var(--space-xl);
+      flex-wrap: wrap;
+      margin-bottom: var(--space-lg);
+    }
+
+    .det-recording__stat {
+      text-align: center;
+    }
+
+    .det-recording__stat-value {
+      font-size: var(--font-size-xl);
+      font-weight: var(--font-weight-extra-bold);
+      color: var(--color-primary);
+      line-height: 1;
+    }
+
+    .det-recording__stat-label {
+      font-size: var(--font-size-xs);
+      color: var(--color-text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-top: var(--space-xs);
+    }
+
+    /* --- Level Meter --- */
+    .det-level-meter {
+      width: 100%;
+      height: 12px;
+      background: var(--color-border);
+      border-radius: var(--radius-full);
+      overflow: hidden;
+      margin-bottom: var(--space-xl);
+    }
+
+    .det-level-meter__fill {
+      height: 100%;
+      width: 0%;
+      border-radius: var(--radius-full);
+      background: var(--color-warning);
+      transition: width 0.06s ease;
+    }
+
+    /* --- Results Screen --- */
+    .det-results {
+      max-width: 640px;
+      margin: 0 auto;
+    }
+
+    /* --- Detected Grid --- */
+    .det-grid-section {
+      background: var(--color-bg-card);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-md);
+      padding: var(--space-xl);
+      margin-bottom: var(--space-lg);
+      text-align: center;
+    }
+
+    .det-grid-section__title {
+      font-size: var(--font-size-lg);
+      font-weight: var(--font-weight-bold);
+      margin-bottom: var(--space-md);
+    }
+
+    .det-grid-display {
+      display: flex;
+      justify-content: center;
+      gap: var(--space-sm);
+      margin-bottom: var(--space-md);
+      font-family: var(--font-family-mono);
+      font-size: var(--font-size-xl);
+      font-weight: var(--font-weight-bold);
+    }
+
+    .det-grid-slot {
+      width: 2.5em;
+      height: 2.5em;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: var(--radius-sm);
+      background: var(--color-bg);
+      border: 2px solid var(--color-border);
+    }
+
+    .det-grid-slot--D {
+      color: var(--color-primary);
+      border-color: var(--color-primary-light);
+    }
+
+    .det-grid-slot--U {
+      color: var(--color-secondary);
+      border-color: var(--color-secondary-light);
+    }
+
+    .det-grid-slot--rest {
+      color: var(--color-text-muted);
+    }
+
+    /* --- Stats Card --- */
+    .det-stats-card {
+      background: var(--color-bg-card);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-md);
+      padding: var(--space-xl);
+      margin-bottom: var(--space-lg);
+    }
+
+    .det-stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: var(--space-md);
+    }
+
+    .det-stat {
+      text-align: center;
+    }
+
+    .det-stat__value {
+      font-size: var(--font-size-2xl);
+      font-weight: var(--font-weight-extra-bold);
+      color: var(--color-primary);
+      line-height: 1;
+    }
+
+    .det-stat__label {
+      font-size: var(--font-size-xs);
+      color: var(--color-text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-top: var(--space-xs);
+    }
+
+    /* --- BPM Adjustment --- */
+    .det-bpm-adjust {
+      background: var(--color-bg-card);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-md);
+      padding: var(--space-lg);
+      margin-bottom: var(--space-lg);
+    }
+
+    .det-bpm-adjust__title {
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-bold);
+      color: var(--color-text-light);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: var(--space-sm);
+    }
+
+    .det-bpm-adjust__row {
+      display: flex;
+      align-items: center;
+      gap: var(--space-md);
+    }
+
+    .det-bpm-slider {
+      flex: 1;
+      min-width: 120px;
+      height: 6px;
+      -webkit-appearance: none;
+      appearance: none;
+      background: var(--color-border);
+      border-radius: var(--radius-full);
+      outline: none;
+    }
+
+    .det-bpm-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: var(--color-primary);
+      cursor: pointer;
+      border: 2px solid var(--color-bg-card);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .det-bpm-slider::-moz-range-thumb {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: var(--color-primary);
+      cursor: pointer;
+      border: 2px solid var(--color-bg-card);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .det-bpm-value {
+      font-size: var(--font-size-xl);
+      font-weight: var(--font-weight-extra-bold);
+      color: var(--color-primary);
+      min-width: 3em;
+      text-align: center;
+    }
+
+    .det-bpm-input {
+      width: 70px;
+      text-align: center;
+    }
+
+    /* --- Pattern Matches --- */
+    .det-matches {
+      background: var(--color-bg-card);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-md);
+      padding: var(--space-xl);
+      margin-bottom: var(--space-lg);
+    }
+
+    .det-matches__title {
+      font-size: var(--font-size-lg);
+      font-weight: var(--font-weight-bold);
+      margin-bottom: var(--space-md);
+    }
+
+    .det-match-item {
+      display: flex;
+      align-items: center;
+      gap: var(--space-md);
+      padding: var(--space-md);
+      border-radius: var(--radius-md);
+      background: var(--color-bg);
+      margin-bottom: var(--space-sm);
+    }
+
+    .det-match-item__rank {
+      font-size: var(--font-size-xl);
+      font-weight: var(--font-weight-extra-bold);
+      color: var(--color-text-muted);
+      width: 2em;
+      text-align: center;
+    }
+
+    .det-match-item:first-child .det-match-item__rank {
+      color: var(--color-accent-dark);
+    }
+
+    .det-match-item__info {
+      flex: 1;
+    }
+
+    .det-match-item__name {
+      font-weight: var(--font-weight-bold);
+      margin-bottom: var(--space-xs);
+    }
+
+    .det-match-item__grid {
+      font-family: var(--font-family-mono);
+      font-size: var(--font-size-sm);
+      color: var(--color-text-light);
+    }
+
+    .det-match-item__similarity {
+      font-size: var(--font-size-lg);
+      font-weight: var(--font-weight-extra-bold);
+      color: var(--color-success);
+      min-width: 3em;
+      text-align: right;
+    }
+
+    .det-match-item__link {
+      font-size: var(--font-size-sm);
+      white-space: nowrap;
+    }
+
+    /* --- Custom Pattern Save --- */
+    .det-custom-save {
+      background: var(--color-bg-card);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-md);
+      padding: var(--space-xl);
+      margin-bottom: var(--space-lg);
+    }
+
+    .det-custom-save__title {
+      font-size: var(--font-size-lg);
+      font-weight: var(--font-weight-bold);
+      margin-bottom: var(--space-sm);
+    }
+
+    .det-custom-save__desc {
+      font-size: var(--font-size-sm);
+      color: var(--color-text-light);
+      margin-bottom: var(--space-md);
+    }
+
+    .det-custom-save__row {
+      display: flex;
+      gap: var(--space-md);
+      align-items: center;
+    }
+
+    .det-custom-save__input {
+      flex: 1;
+    }
+
+    .det-custom-save__msg {
+      font-size: var(--font-size-sm);
+      color: var(--color-success);
+      margin-top: var(--space-sm);
+    }
+
+    /* --- AI Feedback --- */
+    .det-feedback-panel {
+      background: rgba(0, 206, 201, 0.08);
+      border: 2px solid var(--color-secondary-light);
+      border-radius: var(--radius-md);
+      padding: var(--space-md);
+      margin-bottom: var(--space-lg);
+      font-size: var(--font-size-sm);
+      line-height: var(--line-height-base);
+      color: var(--color-text);
+    }
+
+    .det-feedback-panel__title {
+      font-weight: var(--font-weight-bold);
+      color: var(--color-secondary-dark);
+      margin-bottom: var(--space-xs);
+    }
+
+    /* --- Warning Note --- */
+    .det-warning {
+      background: rgba(253, 203, 110, 0.15);
+      border: 2px solid var(--color-warning);
+      border-radius: var(--radius-md);
+      padding: var(--space-sm) var(--space-md);
+      margin-bottom: var(--space-lg);
+      font-size: var(--font-size-sm);
+      color: var(--color-accent-dark);
+    }
+
+    /* --- Error Message --- */
+    .det-error {
+      background: rgba(214, 48, 49, 0.08);
+      border: 2px solid var(--color-error-light);
+      border-radius: var(--radius-md);
+      padding: var(--space-lg);
+      text-align: center;
+      margin-bottom: var(--space-lg);
+    }
+
+    .det-error__title {
+      font-size: var(--font-size-lg);
+      font-weight: var(--font-weight-bold);
+      color: var(--color-error);
+      margin-bottom: var(--space-sm);
+    }
+
+    .det-error__msg {
+      color: var(--color-text-light);
+      margin-bottom: var(--space-md);
+    }
+
+    /* --- Action Buttons --- */
+    .det-actions {
+      display: flex;
+      justify-content: center;
+      gap: var(--space-md);
+      flex-wrap: wrap;
+    }
+
+    /* --- Calibration Overlay --- */
+    .det-calibration-overlay[hidden] {
+      display: none;
+    }
+
+    .det-calibration-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      animation: fade-in 0.25s ease-out;
+    }
+
+    .det-calibration-overlay__inner {
+      max-width: 400px;
+      width: 90%;
+      padding: var(--space-xl);
+      text-align: center;
+      background: var(--color-bg-card);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-lg);
+    }
+
+    .det-calibration-overlay__phase {
+      font-size: var(--font-size-2xl);
+      font-weight: var(--font-weight-extra-bold);
+      color: var(--color-primary);
+      margin-bottom: var(--space-md);
+    }
+
+    .det-calibration-overlay__count {
+      font-size: var(--font-size-xl);
+      color: var(--color-text);
+      margin-bottom: var(--space-lg);
+    }
+
+    .det-calibration-overlay__hint {
+      font-size: var(--font-size-sm);
+      color: var(--color-text-light);
+      margin-bottom: var(--space-lg);
+    }
+
+    .det-calibration-overlay__meter-label {
+      font-size: var(--font-size-xs);
+      color: var(--color-text-muted);
+      text-align: left;
+      margin-bottom: var(--space-xs);
+    }
+
+    .det-calibration-overlay__meter {
+      position: relative;
+      width: 100%;
+      height: 16px;
+      background: var(--color-border);
+      border-radius: var(--radius-full);
+      overflow: hidden;
+      margin-bottom: var(--space-lg);
+    }
+
+    .det-calibration-overlay__meter-fill {
+      height: 100%;
+      width: 0%;
+      border-radius: var(--radius-full);
+      background: var(--color-warning);
+      transition: width 0.06s ease;
+    }
+
+    .det-calibration-overlay__meter-threshold {
+      position: absolute;
+      top: 0;
+      height: 100%;
+      width: 2px;
+      background: rgba(0, 0, 0, 0.4);
+      z-index: 1;
+    }
+
+    /* --- Responsive --- */
+    @media (max-width: 480px) {
+      .det-grid-display {
+        font-size: var(--font-size-lg);
+      }
+
+      .det-grid-slot {
+        width: 2em;
+        height: 2em;
+      }
+
+      .det-recording__stats {
+        gap: var(--space-md);
+      }
+
+      .det-bpm-adjust__row {
+        flex-wrap: wrap;
+      }
+
+      .det-match-item {
+        flex-direction: column;
+        text-align: center;
+      }
+
+      .det-match-item__similarity {
+        text-align: center;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="mtt-header">
+    <a href="../index.html" class="mtt-header__logo" style="text-decoration:none">
+      <span aria-hidden="true">&#9835;</span> Music Theory Games
+    </a>
+    <nav class="mtt-header__nav">
+      <a href="../index.html" class="mtt-header__link">Home</a>
+      <a href="../strumming/index.html" class="mtt-header__link">Strumming</a>
+      <a href="#" class="mtt-header__link mtt-header__link--active">Detector</a>
+    </nav>
+  </header>
+
+  <main class="container">
+    <!-- ===== Setup Screen ===== -->
+    <section id="screen-setup" class="det-screen">
+      <div class="det-setup">
+        <h1 class="mb-md">Pattern Detector</h1>
+        <p class="det-setup__instructions">
+          Record yourself strumming a pattern and this tool will detect the tempo,
+          strum directions, and match it against known patterns.
+        </p>
+        <div class="det-setup__instructions">
+          <ol>
+            <li>Click <strong>Start Recording</strong> below</li>
+            <li>Strum your guitar pattern for 2+ measures</li>
+            <li>Click <strong>Stop</strong> when you're done</li>
+          </ol>
+        </div>
+
+        <!-- Calibration -->
+        <div class="det-calibration">
+          <div class="det-calibration__header">Strum Direction Detection</div>
+          <div class="det-calibration__row">
+            <button id="btn-calibrate" class="btn btn--secondary btn--small" type="button">
+              Calibrate
+            </button>
+            <button id="btn-clear-calibration" class="btn btn--secondary btn--small" type="button" hidden>
+              Clear
+            </button>
+            <span id="calibration-status" class="det-calibration__status">
+              Not calibrated — using defaults
+            </span>
+          </div>
+        </div>
+
+        <button id="btn-start-recording" class="btn btn--primary btn--large">
+          Start Recording
+        </button>
+      </div>
+    </section>
+
+    <!-- ===== Recording Screen ===== -->
+    <section id="screen-recording" class="det-screen" hidden>
+      <div class="det-recording">
+        <div class="det-recording-indicator" aria-label="Recording active">
+          <div class="det-recording-indicator__dot"></div>
+        </div>
+
+        <div class="det-recording__timer" id="rec-timer">0:00</div>
+
+        <div class="det-recording__stats">
+          <div class="det-recording__stat">
+            <div class="det-recording__stat-value" id="rec-strums">0</div>
+            <div class="det-recording__stat-label">Strums</div>
+          </div>
+          <div class="det-recording__stat">
+            <div class="det-recording__stat-value" id="rec-bpm">—</div>
+            <div class="det-recording__stat-label">Est. BPM</div>
+          </div>
+          <div class="det-recording__stat">
+            <div class="det-recording__stat-value" id="rec-measures">—</div>
+            <div class="det-recording__stat-label">Measures</div>
+          </div>
+        </div>
+
+        <!-- Level meter -->
+        <div class="det-level-meter">
+          <div class="det-level-meter__fill" id="rec-level-fill"></div>
+        </div>
+
+        <button id="btn-stop-recording" class="btn btn--danger btn--large">
+          Stop Recording
+        </button>
+      </div>
+    </section>
+
+    <!-- ===== Results Screen ===== -->
+    <section id="screen-results" class="det-screen" hidden>
+      <div class="det-results">
+        <h2 class="text-center mb-lg">Analysis Results</h2>
+
+        <!-- Error (shown when < 4 strums) -->
+        <div id="results-error" class="det-error" hidden>
+          <div class="det-error__title">Not Enough Strums</div>
+          <div class="det-error__msg" id="results-error-msg">
+            We need at least 4 strums to detect a pattern. Try recording again with more strums.
+          </div>
+          <button id="btn-error-retry" class="btn btn--primary">Try Again</button>
+        </div>
+
+        <!-- Low consistency warning -->
+        <div id="results-warning" class="det-warning" hidden>
+          <span id="results-warning-msg"></span>
+        </div>
+
+        <!-- Detected Grid -->
+        <div id="results-grid-section" class="det-grid-section" hidden>
+          <div class="det-grid-section__title">Detected Pattern</div>
+          <div class="det-grid-display" id="results-grid"></div>
+        </div>
+
+        <!-- Stats -->
+        <div id="results-stats" class="det-stats-card" hidden>
+          <div class="det-stats-grid">
+            <div class="det-stat">
+              <div class="det-stat__value" id="stat-bpm">—</div>
+              <div class="det-stat__label">BPM</div>
+            </div>
+            <div class="det-stat">
+              <div class="det-stat__value" id="stat-strums">—</div>
+              <div class="det-stat__label">Strums</div>
+            </div>
+            <div class="det-stat">
+              <div class="det-stat__value" id="stat-measures">—</div>
+              <div class="det-stat__label">Measures</div>
+            </div>
+            <div class="det-stat">
+              <div class="det-stat__value" id="stat-consistency">—</div>
+              <div class="det-stat__label">Consistency</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- BPM Adjustment -->
+        <div id="results-bpm-adjust" class="det-bpm-adjust" hidden>
+          <div class="det-bpm-adjust__title">Adjust Tempo</div>
+          <div class="det-bpm-adjust__row">
+            <input type="range" id="bpm-slider" class="det-bpm-slider"
+                   min="30" max="200" value="80" aria-label="BPM adjustment slider">
+            <span id="bpm-display" class="det-bpm-value">80</span>
+            <input type="number" id="bpm-input" class="form-input det-bpm-input"
+                   min="30" max="200" value="80" aria-label="BPM input">
+          </div>
+        </div>
+
+        <!-- Pattern Matches -->
+        <div id="results-matches" class="det-matches" hidden>
+          <div class="det-matches__title">Pattern Matches</div>
+          <div id="matches-list"></div>
+        </div>
+
+        <!-- Custom Pattern Save -->
+        <div id="results-custom-save" class="det-custom-save" hidden>
+          <div class="det-custom-save__title">Save as Custom Pattern</div>
+          <div class="det-custom-save__desc">
+            No close match found. Save this pattern to practice it in the strumming game!
+          </div>
+          <div class="det-custom-save__row">
+            <input type="text" id="custom-name" class="form-input det-custom-save__input"
+                   placeholder="Pattern name" maxlength="40">
+            <button id="btn-save-custom" class="btn btn--success">Save</button>
+          </div>
+          <div id="custom-save-msg" class="det-custom-save__msg" hidden></div>
+        </div>
+
+        <!-- AI Feedback -->
+        <div id="ai-feedback-panel" class="det-feedback-panel" hidden>
+          <div class="det-feedback-panel__title">Analysis:</div>
+          <div id="ai-feedback-text"></div>
+        </div>
+
+        <!-- Actions -->
+        <div class="det-actions">
+          <button id="btn-record-again" class="btn btn--primary btn--large">Record Again</button>
+          <a href="../index.html" class="btn btn--secondary btn--large">Back to Home</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- Calibration Overlay -->
+    <div id="calibration-overlay" class="det-calibration-overlay" hidden>
+      <div class="det-calibration-overlay__inner">
+        <div id="cal-phase" class="det-calibration-overlay__phase">Strum DOWN</div>
+        <div id="cal-count" class="det-calibration-overlay__count">0 / 4</div>
+        <div id="cal-hint" class="det-calibration-overlay__hint">
+          Strum firmly across all strings — downward stroke
+        </div>
+        <div class="det-calibration-overlay__meter-label">Volume — strum until the bar turns green</div>
+        <div class="det-calibration-overlay__meter">
+          <div id="cal-meter-fill" class="det-calibration-overlay__meter-fill"></div>
+          <div id="cal-meter-threshold" class="det-calibration-overlay__meter-threshold"></div>
+        </div>
+        <button id="btn-cancel-calibration" class="btn btn--secondary" type="button">
+          Cancel
+        </button>
+      </div>
+    </div>
+  </main>
+
+  <script type="module">
+    // ============================================================
+    //  Pattern Detector Tool — Main Logic
+    // ============================================================
+
+    import { startDetection, stopDetection, setDetectionBpm } from '../strumming/detection.js';
+    import { hasCalibration, runCalibration, clearCalibration, CALIBRATION_RMS_THRESHOLD } from '../strumming/calibration.js';
+    import { getAllPatterns, saveCustomPattern, gridToString } from '../strumming/patterns.js';
+    import { isAIAvailable, getSessionFeedback, recordSession } from '../shared/ai.js';
+
+    /* ---------------------------------------------------------- */
+    /*  DOM Refs                                                   */
+    /* ---------------------------------------------------------- */
+
+    const $ = (id) => document.getElementById(id);
+
+    const screens = {
+      setup: $('screen-setup'),
+      recording: $('screen-recording'),
+      results: $('screen-results'),
+    };
+
+    /* ---------------------------------------------------------- */
+    /*  State                                                      */
+    /* ---------------------------------------------------------- */
+
+    const state = {
+      screen: 'setup',
+      audioCtx: null,
+      isRecording: false,
+      recordStartTime: 0,
+      rawOnsets: [],           // [{time, direction, confidence}]
+      detectedBpm: 0,
+      userBpm: 0,              // user-adjusted BPM
+      detectedGrid: [],        // 8-element array: 'D'|'U'|'-'
+      patternMatches: [],      // [{pattern, similarity}]
+      timingConsistency: 0,
+      totalMeasures: 0,
+      timerIntervalId: 0,
+      levelAnimId: 0,
+      savedCustomId: null,
+    };
+
+    /* ---------------------------------------------------------- */
+    /*  Initialization                                             */
+    /* ---------------------------------------------------------- */
+
+    function init() {
+      updateCalibrationStatus();
+      bindEvents();
+    }
+
+    function bindEvents() {
+      $('btn-start-recording').addEventListener('click', startRecording);
+      $('btn-stop-recording').addEventListener('click', stopRecording);
+      $('btn-record-again').addEventListener('click', () => {
+        state.savedCustomId = null;
+        showScreen('setup');
+      });
+      $('btn-error-retry').addEventListener('click', () => {
+        state.savedCustomId = null;
+        showScreen('setup');
+      });
+
+      // BPM adjustment
+      $('bpm-slider').addEventListener('input', () => adjustBpm(+$('bpm-slider').value));
+      $('bpm-input').addEventListener('change', () => adjustBpm(+$('bpm-input').value));
+
+      // Custom pattern save
+      $('btn-save-custom').addEventListener('click', saveAsCustomPattern);
+
+      // Calibration
+      $('btn-calibrate').addEventListener('click', handleCalibrate);
+      $('btn-clear-calibration').addEventListener('click', handleClearCalibration);
+      $('btn-cancel-calibration').addEventListener('click', cancelCalibration);
+    }
+
+    /* ---------------------------------------------------------- */
+    /*  Screen Management                                          */
+    /* ---------------------------------------------------------- */
+
+    function showScreen(name) {
+      state.screen = name;
+      Object.entries(screens).forEach(([key, el]) => {
+        el.hidden = key !== name;
+      });
+    }
+
+    /* ---------------------------------------------------------- */
+    /*  Recording                                                  */
+    /* ---------------------------------------------------------- */
+
+    async function startRecording() {
+      // Init audio context
+      if (!state.audioCtx) {
+        state.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (state.audioCtx.state === 'suspended') {
+        await state.audioCtx.resume();
+      }
+
+      // Reset state
+      state.rawOnsets = [];
+      state.detectedBpm = 0;
+      state.userBpm = 0;
+      state.detectedGrid = [];
+      state.patternMatches = [];
+      state.timingConsistency = 0;
+      state.totalMeasures = 0;
+      state.savedCustomId = null;
+
+      // Start onset detection with BPM=0 (uses default lockout)
+      const micOk = await startDetection(state.audioCtx, onOnset, 0);
+
+      if (!micOk) {
+        alert('Microphone access is required. Please allow mic access and try again.');
+        return;
+      }
+
+      state.isRecording = true;
+      state.recordStartTime = performance.now();
+
+      showScreen('recording');
+      $('rec-strums').textContent = '0';
+      $('rec-bpm').textContent = '—';
+      $('rec-measures').textContent = '—';
+      $('rec-timer').textContent = '0:00';
+
+      // Start timer
+      state.timerIntervalId = setInterval(updateTimer, 200);
+
+      // Start level meter animation
+      startLevelMeter();
+    }
+
+    function onOnset(time, direction, confidence) {
+      if (!state.isRecording) return;
+
+      state.rawOnsets.push({ time, direction, confidence });
+
+      // Update UI
+      $('rec-strums').textContent = state.rawOnsets.length;
+
+      // After 4+ onsets, estimate BPM
+      if (state.rawOnsets.length >= 4) {
+        const bpm = estimateBpm(state.rawOnsets);
+        if (bpm > 0) {
+          state.detectedBpm = bpm;
+          $('rec-bpm').textContent = Math.round(bpm);
+
+          // Update detection lockout for the estimated tempo
+          setDetectionBpm(bpm);
+
+          // Estimate measures
+          const elapsed = time - state.rawOnsets[0].time;
+          const measureMs = (60000 / bpm) * 4; // 4/4 time
+          const measures = Math.floor(elapsed / measureMs) + 1;
+          $('rec-measures').textContent = measures;
+        }
+      }
+    }
+
+    function stopRecording() {
+      state.isRecording = false;
+      stopDetection();
+      clearInterval(state.timerIntervalId);
+      cancelAnimationFrame(state.levelAnimId);
+
+      // Run analysis
+      showScreen('results');
+      analyzeRecording();
+    }
+
+    function updateTimer() {
+      const elapsed = performance.now() - state.recordStartTime;
+      const secs = Math.floor(elapsed / 1000);
+      const mins = Math.floor(secs / 60);
+      const remainder = secs % 60;
+      $('rec-timer').textContent = `${mins}:${String(remainder).padStart(2, '0')}`;
+    }
+
+    function startLevelMeter() {
+      // We don't have direct access to the analyser from detection.js,
+      // so we'll create our own for the level meter display
+      let meterAnalyser = null;
+      let meterSource = null;
+      let meterStream = null;
+      const timeBuf = new Float32Array(2048);
+
+      async function setup() {
+        try {
+          meterStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          meterAnalyser = state.audioCtx.createAnalyser();
+          meterAnalyser.fftSize = 2048;
+          meterSource = state.audioCtx.createMediaStreamSource(meterStream);
+          meterSource.connect(meterAnalyser);
+        } catch {
+          return;
+        }
+
+        function draw() {
+          if (!state.isRecording) {
+            // Cleanup
+            if (meterStream) meterStream.getTracks().forEach(t => t.stop());
+            try { meterSource.disconnect(); } catch {}
+            return;
+          }
+
+          meterAnalyser.getFloatTimeDomainData(timeBuf);
+          let sum = 0;
+          for (let i = 0; i < timeBuf.length; i++) sum += timeBuf[i] * timeBuf[i];
+          const rms = Math.sqrt(sum / timeBuf.length);
+
+          const pct = Math.min(100, (rms / 0.3) * 100);
+          const fill = $('rec-level-fill');
+          fill.style.width = pct + '%';
+          fill.style.background = rms >= 0.07
+            ? 'var(--color-success)' : 'var(--color-warning)';
+
+          state.levelAnimId = requestAnimationFrame(draw);
+        }
+
+        state.levelAnimId = requestAnimationFrame(draw);
+      }
+
+      setup();
+    }
+
+    /* ---------------------------------------------------------- */
+    /*  Tempo Detection                                            */
+    /* ---------------------------------------------------------- */
+
+    function estimateBpm(onsets) {
+      if (onsets.length < 3) return 0;
+
+      // Compute inter-onset intervals (IOIs)
+      const iois = [];
+      for (let i = 1; i < onsets.length; i++) {
+        const ioi = onsets[i].time - onsets[i - 1].time;
+        if (ioi > 100 && ioi < 1500) { // reasonable range
+          iois.push(ioi);
+        }
+      }
+
+      if (iois.length < 2) return 0;
+
+      // Build histogram (20ms bins, 100-1500ms range)
+      const BIN_SIZE = 20;
+      const MIN_IOI = 100;
+      const MAX_IOI = 1500;
+      const numBins = Math.ceil((MAX_IOI - MIN_IOI) / BIN_SIZE);
+      const bins = new Array(numBins).fill(0);
+
+      for (const ioi of iois) {
+        const idx = Math.floor((ioi - MIN_IOI) / BIN_SIZE);
+        if (idx >= 0 && idx < numBins) bins[idx]++;
+      }
+
+      // Find dominant cluster (peak bin)
+      let peakIdx = 0;
+      let peakCount = 0;
+      for (let i = 0; i < numBins; i++) {
+        if (bins[i] > peakCount) {
+          peakCount = bins[i];
+          peakIdx = i;
+        }
+      }
+
+      // Get IOIs in the dominant cluster (peak ± 30ms)
+      const peakCenter = MIN_IOI + (peakIdx + 0.5) * BIN_SIZE;
+      const clusterRange = 30;
+      const clusterIOIs = iois.filter(ioi =>
+        Math.abs(ioi - peakCenter) <= clusterRange
+      );
+
+      if (clusterIOIs.length === 0) return 0;
+
+      const dominantIOI = clusterIOIs.reduce((s, v) => s + v, 0) / clusterIOIs.length;
+
+      // Check for secondary cluster at 2x (quarter note vs eighth note)
+      const doubleCenter = dominantIOI * 2;
+      const halfCenter = dominantIOI / 2;
+
+      let doubleCount = 0;
+      let halfCount = 0;
+      for (const ioi of iois) {
+        if (Math.abs(ioi - doubleCenter) <= clusterRange) doubleCount++;
+        if (Math.abs(ioi - halfCenter) <= clusterRange) halfCount++;
+      }
+
+      // Determine if the dominant IOI is an eighth note or quarter note
+      let eighthNoteMs;
+      if (doubleCount > clusterIOIs.length * 0.3) {
+        // Significant cluster at 2x → dominant is eighth note
+        eighthNoteMs = dominantIOI;
+      } else if (halfCount > clusterIOIs.length * 0.3) {
+        // Significant cluster at 0.5x → dominant is quarter note
+        eighthNoteMs = dominantIOI / 2;
+      } else {
+        // Assume dominant is eighth note (most common for strumming)
+        eighthNoteMs = dominantIOI;
+      }
+
+      // BPM = 60000 / quarterNoteMs
+      const quarterNoteMs = eighthNoteMs * 2;
+      const bpm = Math.round(60000 / quarterNoteMs);
+
+      // Clamp to [30, 200]
+      return Math.max(30, Math.min(200, bpm));
+    }
+
+    function computeConsistency(onsets, eighthNoteMs) {
+      if (onsets.length < 3) return 0;
+
+      // Compute IOIs
+      const iois = [];
+      for (let i = 1; i < onsets.length; i++) {
+        iois.push(onsets[i].time - onsets[i - 1].time);
+      }
+
+      // Find deviations from nearest multiple of eighthNoteMs
+      const deviations = iois.map(ioi => {
+        const nearestMultiple = Math.round(ioi / eighthNoteMs) * eighthNoteMs;
+        return Math.abs(ioi - nearestMultiple);
+      });
+
+      const meanDev = deviations.reduce((s, v) => s + v, 0) / deviations.length;
+      const consistency = Math.max(0, Math.round(100 - (meanDev / eighthNoteMs * 100)));
+
+      return consistency;
+    }
+
+    /* ---------------------------------------------------------- */
+    /*  Quantization                                               */
+    /* ---------------------------------------------------------- */
+
+    function quantizeToGrid(onsets, bpm) {
+      const eighthNoteMs = (60000 / bpm) / 2;
+      const measureMs = eighthNoteMs * 8;
+      const startTime = onsets[0].time;
+
+      // Map each onset to its slot in the measure
+      const measuredSlots = []; // [{measure, slot, direction, confidence}]
+
+      for (const onset of onsets) {
+        const relTime = onset.time - startTime;
+        const slot = Math.round(relTime / eighthNoteMs);
+        const measure = Math.floor(slot / 8);
+        const slotInMeasure = ((slot % 8) + 8) % 8; // ensure positive
+
+        measuredSlots.push({
+          measure,
+          slot: slotInMeasure,
+          direction: onset.direction,
+          confidence: onset.confidence,
+        });
+      }
+
+      // Count measures
+      const maxMeasure = Math.max(0, ...measuredSlots.map(s => s.measure));
+      const numMeasures = maxMeasure + 1;
+
+      // Build per-measure grids
+      const measureGrids = [];
+      for (let m = 0; m < numMeasures; m++) {
+        const grid = new Array(8).fill('-');
+        const slotsInMeasure = measuredSlots.filter(s => s.measure === m);
+
+        for (const s of slotsInMeasure) {
+          if (s.direction) {
+            grid[s.slot] = s.direction;
+          } else {
+            // Unknown direction: use heuristic (even=D, odd=U)
+            grid[s.slot] = s.slot % 2 === 0 ? 'D' : 'U';
+          }
+        }
+
+        measureGrids.push(grid);
+      }
+
+      // Consensus pattern: mode of each slot across all measures
+      const consensus = new Array(8).fill('-');
+      for (let slot = 0; slot < 8; slot++) {
+        const votes = { 'D': 0, 'U': 0, '-': 0 };
+        for (const grid of measureGrids) {
+          votes[grid[slot]]++;
+        }
+
+        // Find mode
+        if (votes['D'] > 0 || votes['U'] > 0) {
+          if (votes['D'] >= votes['U']) {
+            consensus[slot] = votes['D'] > 0 ? 'D' : '-';
+          } else {
+            consensus[slot] = 'U';
+          }
+        }
+      }
+
+      return { grid: consensus, numMeasures };
+    }
+
+    /* ---------------------------------------------------------- */
+    /*  Pattern Matching                                           */
+    /* ---------------------------------------------------------- */
+
+    function matchPatterns(detectedGrid) {
+      const patterns = getAllPatterns();
+      const matches = [];
+
+      for (const pattern of patterns) {
+        const similarity = computeSimilarity(detectedGrid, pattern.grid);
+        matches.push({ pattern, similarity });
+      }
+
+      // Sort by similarity descending
+      matches.sort((a, b) => b.similarity - a.similarity);
+
+      return matches.slice(0, 3);
+    }
+
+    function computeSimilarity(gridA, gridB) {
+      let score = 0;
+      let maxScore = 0;
+
+      for (let i = 0; i < 8; i++) {
+        const a = gridA[i];
+        const b = gridB[i];
+
+        if (a === b && a !== '-') {
+          // Same strum type (D=D or U=U)
+          score += 3;
+        } else if (a !== '-' && b !== '-') {
+          // Both strums, different direction
+          score += 1.5;
+        } else if (a === '-' && b === '-') {
+          // Both rest
+          score += 1;
+        }
+        // strum vs rest: 0 pts
+
+        // Max possible per slot
+        maxScore += 3;
+      }
+
+      return maxScore > 0 ? Math.round((score / maxScore) * 100) : 0;
+    }
+
+    /* ---------------------------------------------------------- */
+    /*  Analysis Pipeline                                          */
+    /* ---------------------------------------------------------- */
+
+    async function analyzeRecording() {
+      // Hide all result sections initially
+      $('results-error').hidden = true;
+      $('results-warning').hidden = true;
+      $('results-grid-section').hidden = true;
+      $('results-stats').hidden = true;
+      $('results-bpm-adjust').hidden = true;
+      $('results-matches').hidden = true;
+      $('results-custom-save').hidden = true;
+      $('ai-feedback-panel').hidden = true;
+      $('custom-save-msg').hidden = true;
+
+      // Check minimum strums
+      if (state.rawOnsets.length < 4) {
+        $('results-error').hidden = false;
+        $('results-error-msg').textContent =
+          `Only ${state.rawOnsets.length} strum${state.rawOnsets.length === 1 ? '' : 's'} detected. ` +
+          'We need at least 4 strums to detect a pattern. Try recording again.';
+        return;
+      }
+
+      // Estimate BPM
+      const bpm = estimateBpm(state.rawOnsets);
+      if (bpm <= 0) {
+        $('results-error').hidden = false;
+        $('results-error-msg').textContent =
+          'Could not determine tempo. Try strumming more evenly and recording again.';
+        return;
+      }
+
+      state.detectedBpm = bpm;
+      state.userBpm = bpm;
+
+      // Compute consistency
+      const eighthNoteMs = (60000 / bpm) / 2;
+      state.timingConsistency = computeConsistency(state.rawOnsets, eighthNoteMs);
+
+      // Quantize
+      const { grid, numMeasures } = quantizeToGrid(state.rawOnsets, bpm);
+      state.detectedGrid = grid;
+      state.totalMeasures = numMeasures;
+
+      // Match patterns
+      state.patternMatches = matchPatterns(grid);
+
+      // Render results
+      renderResults();
+
+      // Request AI feedback
+      if (isAIAvailable()) {
+        requestAIFeedback();
+      }
+    }
+
+    function renderResults() {
+      // Low consistency warning
+      if (state.timingConsistency < 30) {
+        $('results-warning').hidden = false;
+        $('results-warning-msg').textContent =
+          `Timing consistency is low (${state.timingConsistency}%). ` +
+          'Results may be approximate. Try strumming more steadily for better detection.';
+      }
+
+      // Detected grid
+      $('results-grid-section').hidden = false;
+      renderGrid(state.detectedGrid, $('results-grid'));
+
+      // All directions unknown note
+      const hasDirection = state.rawOnsets.some(o => o.direction !== null);
+      if (!hasDirection) {
+        const note = document.createElement('div');
+        note.style.cssText = 'font-size: var(--font-size-sm); color: var(--color-text-light); margin-top: var(--space-sm);';
+        note.textContent = 'Strum directions estimated (even beats = down, odd = up). Calibrate for more accurate detection.';
+        $('results-grid').parentNode.appendChild(note);
+      }
+
+      // Stats
+      $('results-stats').hidden = false;
+      $('stat-bpm').textContent = Math.round(state.userBpm);
+      $('stat-strums').textContent = state.rawOnsets.length;
+      $('stat-measures').textContent = state.totalMeasures;
+      $('stat-consistency').textContent = state.timingConsistency + '%';
+
+      // BPM adjustment
+      $('results-bpm-adjust').hidden = false;
+      $('bpm-slider').value = state.userBpm;
+      $('bpm-display').textContent = Math.round(state.userBpm);
+      $('bpm-input').value = Math.round(state.userBpm);
+
+      // Pattern matches
+      renderMatches();
+    }
+
+    function renderGrid(grid, container) {
+      container.innerHTML = '';
+      for (const slot of grid) {
+        const el = document.createElement('div');
+        let cls = 'det-grid-slot';
+        if (slot === 'D') cls += ' det-grid-slot--D';
+        else if (slot === 'U') cls += ' det-grid-slot--U';
+        else cls += ' det-grid-slot--rest';
+
+        if (slot === 'D') el.innerHTML = '&#8595;'; // down arrow
+        else if (slot === 'U') el.innerHTML = '&#8593;'; // up arrow
+        else el.textContent = '-';
+
+        el.className = cls;
+        container.appendChild(el);
+      }
+    }
+
+    function renderMatches() {
+      $('results-matches').hidden = false;
+      const list = $('matches-list');
+      list.innerHTML = '';
+
+      if (state.patternMatches.length === 0) {
+        list.innerHTML = '<div style="color: var(--color-text-muted); text-align: center; padding: var(--space-md);">No patterns in library to compare.</div>';
+        return;
+      }
+
+      state.patternMatches.forEach((match, idx) => {
+        const item = document.createElement('div');
+        item.className = 'det-match-item';
+
+        const tryLink = document.createElement('a');
+        tryLink.href = `../strumming/index.html?pattern=${encodeURIComponent(match.pattern.id)}`;
+        tryLink.className = 'det-match-item__link btn btn--secondary btn--small';
+        tryLink.textContent = 'Try This';
+
+        item.innerHTML = `
+          <div class="det-match-item__rank">#${idx + 1}</div>
+          <div class="det-match-item__info">
+            <div class="det-match-item__name">${escapeHtml(match.pattern.name)}</div>
+            <div class="det-match-item__grid">${gridToString(match.pattern.grid)}</div>
+          </div>
+          <div class="det-match-item__similarity">${match.similarity}%</div>
+        `;
+
+        item.appendChild(tryLink);
+        list.appendChild(item);
+      });
+
+      // Show custom save option when best match < 70%
+      const bestSimilarity = state.patternMatches.length > 0
+        ? state.patternMatches[0].similarity
+        : 0;
+
+      if (bestSimilarity < 70) {
+        $('results-custom-save').hidden = false;
+        $('custom-name').value = '';
+        $('custom-save-msg').hidden = true;
+      }
+    }
+
+    /* ---------------------------------------------------------- */
+    /*  BPM Adjustment                                             */
+    /* ---------------------------------------------------------- */
+
+    function adjustBpm(val) {
+      const clamped = Math.max(30, Math.min(200, val));
+      state.userBpm = clamped;
+      $('bpm-slider').value = clamped;
+      $('bpm-display').textContent = clamped;
+      $('bpm-input').value = clamped;
+      $('stat-bpm').textContent = clamped;
+
+      // Re-quantize
+      const eighthNoteMs = (60000 / clamped) / 2;
+      state.timingConsistency = computeConsistency(state.rawOnsets, eighthNoteMs);
+      $('stat-consistency').textContent = state.timingConsistency + '%';
+
+      const { grid, numMeasures } = quantizeToGrid(state.rawOnsets, clamped);
+      state.detectedGrid = grid;
+      state.totalMeasures = numMeasures;
+      $('stat-measures').textContent = numMeasures;
+
+      // Re-render grid
+      renderGrid(grid, $('results-grid'));
+
+      // Re-match patterns
+      state.patternMatches = matchPatterns(grid);
+      renderMatches();
+    }
+
+    /* ---------------------------------------------------------- */
+    /*  Custom Pattern Save                                        */
+    /* ---------------------------------------------------------- */
+
+    function saveAsCustomPattern() {
+      const name = $('custom-name').value.trim();
+      if (!name) {
+        $('custom-name').focus();
+        return;
+      }
+
+      const bpm = Math.round(state.userBpm);
+      const pattern = saveCustomPattern({
+        name,
+        description: 'Custom pattern detected from recording.',
+        grid: [...state.detectedGrid],
+        suggestedBpmRange: [Math.max(30, bpm - 20), Math.min(200, bpm + 20)],
+        tips: `Detected at ${bpm} BPM. Practice slowly and build up speed.`,
+      });
+
+      state.savedCustomId = pattern.id;
+
+      $('custom-save-msg').hidden = false;
+      $('custom-save-msg').textContent = `Saved! Pattern "${name}" added to your library.`;
+      $('btn-save-custom').disabled = true;
+      $('btn-save-custom').textContent = 'Saved';
+
+      // Add a "Try This" link for the custom pattern
+      const tryLink = document.createElement('a');
+      tryLink.href = `../strumming/index.html?pattern=${encodeURIComponent(pattern.id)}`;
+      tryLink.className = 'btn btn--primary btn--small';
+      tryLink.textContent = 'Practice This Pattern';
+      tryLink.style.marginTop = 'var(--space-sm)';
+      tryLink.style.display = 'inline-block';
+      $('custom-save-msg').after(tryLink);
+    }
+
+    /* ---------------------------------------------------------- */
+    /*  AI Feedback                                                */
+    /* ---------------------------------------------------------- */
+
+    async function requestAIFeedback() {
+      $('ai-feedback-panel').hidden = false;
+      $('ai-feedback-text').textContent = 'Analyzing your pattern...';
+
+      const sessionData = {
+        tool: 'pattern-detector',
+        detectedBpm: Math.round(state.userBpm),
+        strumCount: state.rawOnsets.length,
+        measures: state.totalMeasures,
+        consistency: state.timingConsistency,
+        detectedGrid: gridToString(state.detectedGrid),
+        topMatch: state.patternMatches.length > 0
+          ? `${state.patternMatches[0].pattern.name} (${state.patternMatches[0].similarity}%)`
+          : 'none',
+      };
+
+      recordSession('strumming', sessionData);
+
+      const feedback = await getSessionFeedback('strumming', sessionData);
+      if (feedback) {
+        $('ai-feedback-text').textContent = feedback;
+      } else {
+        $('ai-feedback-panel').hidden = true;
+      }
+    }
+
+    /* ---------------------------------------------------------- */
+    /*  Calibration Handlers                                       */
+    /* ---------------------------------------------------------- */
+
+    let calibrationAbortController = null;
+
+    function updateCalibrationStatus() {
+      if (hasCalibration()) {
+        $('calibration-status').textContent = 'Calibrated';
+        $('calibration-status').className = 'det-calibration__status det-calibration__status--ok';
+        $('btn-clear-calibration').hidden = false;
+      } else {
+        $('calibration-status').textContent = 'Not calibrated — using defaults';
+        $('calibration-status').className = 'det-calibration__status';
+        $('btn-clear-calibration').hidden = true;
+      }
+    }
+
+    async function handleCalibrate() {
+      if (!state.audioCtx) {
+        state.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (state.audioCtx.state === 'suspended') {
+        await state.audioCtx.resume();
+      }
+
+      let micStream;
+      try {
+        micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      } catch {
+        $('calibration-status').textContent = 'Mic access denied';
+        return;
+      }
+
+      const analyser = state.audioCtx.createAnalyser();
+      analyser.fftSize = 2048;
+      analyser.smoothingTimeConstant = 0.3;
+      const source = state.audioCtx.createMediaStreamSource(micStream);
+      source.connect(analyser);
+
+      $('calibration-overlay').hidden = false;
+      $('cal-meter-fill').style.width = '0%';
+      const meterMax = 0.3;
+      $('cal-meter-threshold').style.left = (CALIBRATION_RMS_THRESHOLD / meterMax * 100) + '%';
+
+      calibrationAbortController = new AbortController();
+
+      await runCalibration(state.audioCtx, analyser, {
+        onPhase(phase) {
+          if (phase === 'down') {
+            $('cal-phase').textContent = 'Strum DOWN';
+            $('cal-hint').textContent = 'Strum firmly across all strings — downward stroke';
+            $('cal-count').textContent = '0 / 4';
+          } else {
+            $('cal-phase').textContent = 'Strum UP';
+            $('cal-hint').textContent = 'Strum firmly across all strings — upward stroke';
+            $('cal-count').textContent = '0 / 4';
+          }
+        },
+        onStrum(phase, count) {
+          $('cal-count').textContent = `${count} / 4`;
+        },
+        onLevel(rms) {
+          const pct = Math.min(100, (rms / meterMax) * 100);
+          const fill = $('cal-meter-fill');
+          fill.style.width = pct + '%';
+          fill.style.background = rms >= CALIBRATION_RMS_THRESHOLD
+            ? 'var(--color-success)' : 'var(--color-warning)';
+        },
+        onComplete() {},
+        onError(msg) {
+          console.warn('[detector calibration] Error:', msg);
+        },
+      }, calibrationAbortController.signal);
+
+      micStream.getTracks().forEach(t => t.stop());
+      try { source.disconnect(); } catch {}
+
+      $('calibration-overlay').hidden = true;
+      calibrationAbortController = null;
+
+      updateCalibrationStatus();
+    }
+
+    function cancelCalibration() {
+      if (calibrationAbortController) {
+        calibrationAbortController.abort();
+      }
+    }
+
+    function handleClearCalibration() {
+      clearCalibration();
+      updateCalibrationStatus();
+    }
+
+    /* ---------------------------------------------------------- */
+    /*  Utility                                                    */
+    /* ---------------------------------------------------------- */
+
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    /* ---------------------------------------------------------- */
+    /*  Bootstrap                                                  */
+    /* ---------------------------------------------------------- */
+
+    init();
+  </script>
+</body>
+</html>

@@ -10,7 +10,7 @@ A browser-based music theory education platform targeting kids ages 8–12. Pure
 music-theory-games/
 ├── CLAUDE.md              # This file — architecture reference
 ├── .gitignore             # Ignores shared/config.js (contains API key)
-├── index.html             # Main hub page — game launcher
+├── index.html             # Main hub page — game launcher + tools section
 ├── shared/                # Shared modules and design system
 │   ├── styles.css         # Global design system (CSS custom properties)
 │   ├── progress.js        # Leaderboard & score tracking (localStorage)
@@ -30,11 +30,13 @@ music-theory-games/
 │   ├── index.html         # Game page
 │   ├── rhythm.js          # Game logic — EKG metronome, clap detection, scoring
 │   └── styles.css         # Game-specific styles
-└── strumming/             # Guitar strumming pattern game
-    ├── index.html         # Game page (inline CSS/JS)
-    ├── patterns.js        # Strumming pattern definitions & custom pattern storage
-    ├── detection.js       # Onset detection (RMS + spectral flux) + direction classification
-    └── calibration.js     # Strum direction calibration flow & spectral helpers
+├── strumming/             # Guitar strumming pattern game
+│   ├── index.html         # Game page (inline CSS/JS), supports ?pattern=<id> URL param
+│   ├── patterns.js        # Strumming pattern definitions & custom pattern storage
+│   ├── detection.js       # Onset detection (RMS + spectral flux) + direction classification
+│   └── calibration.js     # Strum direction calibration flow & spectral helpers
+└── detector/              # Strumming pattern detector tool
+    └── index.html         # Tool page (inline CSS/JS)
 ```
 
 ## Technology Choices
@@ -453,7 +455,7 @@ Exports pattern data and custom pattern CRUD.
 
 Onset detection and direction classification for guitar strums using Web Audio API.
 
-**Onset algorithm:** Attack-only with hard lockout and post-upstrum filtering. Two-state cycle: (1) **Listening** — read RMS each frame, fire onset when `rms > RMS_THRESHOLD` (0.07). (2) **Lockout** — no audio analysis at all (no `getFloatTimeDomainData`, no `getFloatFrequencyData`) for `lockoutMs` (tempo-adaptive, min 350ms). After upstrums, lockout is extended by 1.2× (`UPSTRUM_LOCKOUT_MULTIPLIER`) because bass strings vibrate sympathetically and produce low-frequency energy that mimics a downstrum. Additionally, when lockout expires, if the new onset's RMS is less than 40% of the previous onset's peak (`PEAK_SUPPRESSION_RATIO`), it is suppressed as residual vibration.
+**Onset algorithm:** Transient detection with envelope tracking, sustain gate, and hard lockout. A smoothed RMS envelope (slow-decay EMA, alpha=0.005) tracks the sustained energy level continuously. An onset fires when ALL three conditions are met: (1) instantaneous RMS exceeds the envelope by `TRANSIENT_RATIO` (1.5×), (2) RMS exceeds `ABS_MIN_RMS` (0.05), and (3) RMS at least doubled from the previous animation frame (`ATTACK_VELOCITY_RATIO` = 2.0). Condition 3 is the sustain gate — real strum attacks cause a near-instantaneous amplitude jump within one frame (~16ms), while sustained string vibrations and resonance fluctuations change gradually over many frames and fail this check. Audio is read every frame (including during lockout) to keep the envelope current. `prevFrameRMS` is reset to 0 during lockout so the first post-lockout frame falls back to the absolute floor check. After each onset, a hard lockout prevents re-triggering for `lockoutMs` (tempo-adaptive, max 400ms). After upstrums, lockout is extended by 1.2× (`UPSTRUM_LOCKOUT_MULTIPLIER`) to suppress bass string sympathetic vibration.
 
 **Direction classification:** On each confirmed onset, two spectral features are computed from the current frequency frame and compared against thresholds (from calibration data or defaults):
 1. **Spectral centroid** — Below threshold → D, above → U. Down strums strike thicker strings first, producing a lower centroid.
@@ -467,13 +469,15 @@ When both features agree, confidence is boosted (+0.15). When they disagree, the
 - `isDetecting()` — Check if running.
 - `setDetectionBpm(bpm)` — Update lockout duration for a new tempo. Call when BPM changes during gameplay.
 
-**Lockout strategy:** After any detected onset, all audio input is completely ignored for `lockoutMs` milliseconds — no RMS checks, no spectral analysis, nothing. After upstrums, lockout is extended by 1.2× to suppress bass string sympathetic vibration. When lockout expires, the first frame above `RMS_THRESHOLD` fires — but only if its RMS is at least 40% of the previous onset's peak (otherwise suppressed as residual). Lockout is computed dynamically as `Math.min(DEFAULT_LOCKOUT_MS, eighthNoteMs * 0.7)` so it scales with tempo.
+**Lockout strategy:** After any detected onset, no new onsets fire for `lockoutMs` milliseconds. Unlike previous versions, audio IS still read during lockout to keep the RMS envelope up to date — only onset firing is suppressed. After upstrums, lockout is extended by 1.2× to suppress bass string sympathetic vibration. Lockout is computed dynamically as `Math.min(DEFAULT_LOCKOUT_MS, eighthNoteMs * 0.7)` so it scales with tempo.
 
 **Constants (tunable):**
-- `RMS_THRESHOLD` (0.07) — Minimum RMS amplitude for onset detection.
-- `DEFAULT_LOCKOUT_MS` (350) — Maximum lockout duration. Actual lockout is `min(350, eighthNoteMs * 0.7)`.
+- `ABS_MIN_RMS` (0.05) — Absolute minimum RMS floor; prevents silence from triggering.
+- `TRANSIENT_RATIO` (1.5) — Instantaneous RMS must exceed envelope by this factor for onset.
+- `ENVELOPE_ALPHA` (0.005) — EMA smoothing factor for the RMS envelope. Small = slow decay.
+- `ATTACK_VELOCITY_RATIO` (2.0) — Current frame RMS must be at least this multiple of previous frame RMS. Rejects gradual resonance fluctuations.
+- `DEFAULT_LOCKOUT_MS` (400) — Maximum lockout duration. Actual lockout is `min(400, eighthNoteMs * 0.7)`.
 - `UPSTRUM_LOCKOUT_MULTIPLIER` (1.2) — Lockout extension factor after upstrums.
-- `PEAK_SUPPRESSION_RATIO` (0.4) — New onset suppressed if RMS < previous peak × this.
 - `LATENCY_COMPENSATION_MS` (0) — Audio input latency offset.
 - `DEFAULT_CENTROID_THRESHOLD` (750) — Fallback centroid divider when no calibration.
 - `DEFAULT_RATIO_THRESHOLD` (2.0) — Fallback ratio divider when no calibration.
@@ -572,6 +576,78 @@ Strum direction (down vs up) is classified on each detected onset using two spec
 - **Audio latency calibration** — Calibration routine to measure and compensate for mic input latency.
 - **Custom pattern builder UI** — Let users create, edit, and share custom strumming patterns. Data model already supports this via `patterns.js`.
 - **Detector tuning tool** — Debug/calibration view showing raw RMS, spectral flux, and onset triggers in real-time.
+
+## Detector — Strumming Pattern Detector Tool
+
+### Overview
+
+A standalone analysis tool that records guitar strumming, automatically detects tempo and strum directions, quantizes to an eighth-note grid, and matches against the pattern library. Complements the strumming game by letting users discover what pattern they're playing.
+
+### File Structure
+
+- `detector/index.html` — Single HTML file with inline `<style>` and `<script type="module">`. Same architecture as other games.
+
+### Three Screens (hidden attribute toggling)
+
+1. **Setup Screen** — Instructions, calibration status + buttons, "Start Recording" button.
+2. **Recording Screen** — Pulsing red indicator, elapsed timer, live strum count, estimated BPM (after 4+ strums), estimated measures, RMS level meter, "Stop Recording" button.
+3. **Results Screen** — Detected pattern grid, stats (BPM, strums, measures, consistency), BPM adjustment slider (re-quantizes on change), top 3 pattern matches with similarity %, custom pattern save (when no match >= 70%), optional AI feedback, action buttons.
+
+### CSS Prefix: `det-`
+
+### JS Architecture
+
+**State object:** `screen`, `audioCtx`, `isRecording`, `recordStartTime`, `rawOnsets[]`, `detectedBpm`, `userBpm`, `detectedGrid[]`, `patternMatches[]`, `timingConsistency`, etc.
+
+**Recording flow:**
+1. Init AudioContext, call `startDetection(audioCtx, onOnset, 0)` with BPM=0 (default lockout).
+2. Each onset callback: push `{time, direction, confidence}` to `rawOnsets[]`.
+3. After 4+ onsets: estimate BPM from median IOI, call `setDetectionBpm()` to adapt lockout.
+4. On stop: call `stopDetection()`, run analysis pipeline.
+
+### Tempo Detection Algorithm
+
+1. Compute inter-onset intervals (IOIs).
+2. Build histogram (20ms bins, 100–1500ms range).
+3. Find dominant cluster (peak bin ± 30ms).
+4. Check for secondary cluster at 2× or 0.5× to distinguish eighth vs quarter note.
+5. BPM = 60000 / (eighthNoteMs × 2), clamped to [30, 200].
+6. Consistency = 100 − (meanDeviation / eighthNoteMs × 100).
+
+### Quantization Algorithm
+
+1. First onset = phase reference (measure start).
+2. Map each onset to nearest eighth-note slot: `slot = Math.round((time - start) / eighthNoteMs)`.
+3. Build per-measure grids (8 slots each).
+4. Consensus pattern = mode of each slot across all measures.
+5. Unknown directions: default even slots → D, odd slots → U.
+
+### Pattern Matching
+
+Weighted slot comparison against `getAllPatterns()`:
+- Same strum type (D=D or U=U): 3 pts
+- Both strums, different direction: 1.5 pts
+- Both rest: 1 pt
+- Strum vs rest: 0 pts
+- Similarity = score / maxScore × 100%
+
+Shows top 3 matches sorted by similarity. Custom pattern save shown when best match < 70%.
+
+### "Try This Pattern" Link
+
+Navigates to `../strumming/index.html?pattern=<id>`. The strumming game reads the `?pattern` URL parameter in `init()` to pre-select the pattern dropdown.
+
+### Edge Cases
+
+- < 4 strums: friendly error with "Try Again" button.
+- Mic denied: alert message suggesting allowing access.
+- Low consistency (< 30%): warning note, still displays results.
+- All directions unknown: uses even=D/odd=U heuristic, notes this in the UI.
+
+### Integration
+
+- **Reuses** `strumming/detection.js` (onset detection), `strumming/calibration.js` (calibration flow), `strumming/patterns.js` (pattern data + `saveCustomPattern()`), `shared/ai.js` (optional AI feedback).
+- **Hub page:** Card in the "Tools" section of `index.html` with teal left-border accent (`.tool-card`).
 
 ## Conventions
 

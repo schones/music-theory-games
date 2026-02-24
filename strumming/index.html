@@ -1004,6 +1004,14 @@
 
     function init() {
       populatePatternSelect();
+
+      // Pre-select pattern from URL parameter (e.g., ?pattern=basic-44)
+      const urlParams = new URLSearchParams(window.location.search);
+      const patternParam = urlParams.get('pattern');
+      if (patternParam && getPatternById(patternParam)) {
+        $('pattern-select').value = patternParam;
+      }
+
       bindEvents();
       updatePatternPreview();
       updateCalibrationStatus();

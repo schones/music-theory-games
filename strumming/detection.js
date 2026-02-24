@@ -2,20 +2,24 @@
  * Guitar Strum Onset Detection Module
  * strumming/detection.js
  *
- * Detects strum timing using a simple attack-only approach:
- *   1. Listen for RMS above threshold (attack transient).
- *   2. Fire onset, then enter hard lockout — NO audio analysis at all.
- *   3. When lockout expires, resume fresh listening.
+ * Detects strum timing using transient/attack detection with a sustain gate:
+ *   1. Track a smoothed RMS envelope (slow-decay EMA) that follows overall energy.
+ *   2. Detect onset when ALL conditions are met:
+ *      a. Instantaneous RMS exceeds envelope × TRANSIENT_RATIO (1.5×).
+ *      b. Instantaneous RMS exceeds ABS_MIN_RMS (absolute floor).
+ *      c. RMS at least doubled from the previous frame (ATTACK_VELOCITY_RATIO).
+ *   3. Fire onset, then enter hard lockout — no onset detection during lockout.
+ *   4. During lockout, audio is still read to keep the envelope up to date.
  *
- * The lockout ensures sustained string ring can never retrigger because
- * no audio is read during the dead zone. By the time listening resumes,
- * the previous strum has decayed below threshold.
+ * The frame-to-frame velocity check (condition c) is the key differentiator
+ * between real strum attacks and sustained string vibrations. A real attack
+ * causes a near-instantaneous jump in amplitude within a single animation
+ * frame (~16ms), while resonance and string ring fluctuate gradually over
+ * many frames.
  *
  * Additional filtering:
  *   - After an upstrum, lockout is extended by 1.2× because upstrums cause
  *     more bass string sympathetic vibration that can mimic a downstrum.
- *   - When lockout expires, if the new onset RMS is significantly weaker than
- *     the previous onset (< 40%), it is suppressed as residual vibration.
  *
  * Also classifies strum direction (down vs up) using spectral centroid and
  * low/high energy ratio features, optionally calibrated per-user.
@@ -34,24 +38,34 @@ import {
 const FFT_SIZE = 2048;
 const LATENCY_COMPENSATION_MS = 0;
 
-// Minimum RMS for a guitar attack transient to trigger an onset.
-const RMS_THRESHOLD = 0.07;
+// Absolute minimum RMS floor — prevents silence from triggering.
+const ABS_MIN_RMS = 0.05;
 
-// Hard lockout: after an onset, ALL audio analysis stops for this many ms.
-// No getFloatTimeDomainData, no getFloatFrequencyData — complete silence.
-// When lockout expires, prevRMS resets to 0 so the first audio frame with
-// any signal above RMS_THRESHOLD will fire immediately (fresh attack).
+// Transient ratio — instantaneous RMS must exceed the smoothed envelope
+// by at least this factor to count as a new strum attack.
+const TRANSIENT_RATIO = 1.5;
+
+// Envelope smoothing factor (exponential moving average).
+// Small alpha = slow decay, so the envelope tracks sustained string energy
+// and new strum attacks spike well above it.
+const ENVELOPE_ALPHA = 0.005;
+
+// Frame-to-frame velocity check — current RMS must be at least this multiple
+// of the previous frame's RMS. Real strum attacks cause a near-instantaneous
+// jump in amplitude within one animation frame (~16ms). Sustained string
+// vibrations and resonance fluctuations change gradually over many frames
+// and fail this check.
+const ATTACK_VELOCITY_RATIO = 2.0;
+
+// Hard lockout: after an onset, no new onsets fire for this many ms.
+// Audio is still read during lockout to keep the envelope up to date.
 // Dynamically scaled to Math.min(DEFAULT_LOCKOUT_MS, eighthNoteMs * 0.7).
-const DEFAULT_LOCKOUT_MS = 350;
+const DEFAULT_LOCKOUT_MS = 400;
 
 // After an upstrum, extend lockout by this factor. Upstrums cause bass
 // strings to ring sympathetically, producing low-frequency energy that
 // the direction classifier misreads as a downstrum.
 const UPSTRUM_LOCKOUT_MULTIPLIER = 1.2;
-
-// If a new onset's RMS is below this fraction of the previous onset's peak,
-// suppress it — it's likely residual vibration, not a fresh attack.
-const PEAK_SUPPRESSION_RATIO = 0.4;
 
 // Direction classification defaults (used when no calibration data exists)
 const LOW_HIGH_CUTOFF_HZ = 400;
@@ -116,6 +130,8 @@ export async function startDetection(audioCtx, onOnset, bpm = 0) {
     lastOnsetTime: 0,
     lastOnsetRMS: 0,
     lastDirection: null,
+    envelope: 0,          // Smoothed RMS envelope (EMA)
+    prevFrameRMS: 0,      // RMS from the immediately previous frame
     lockoutMs: computeLockout(bpm),
     running: true,
     animFrameId: 0,
@@ -199,39 +215,45 @@ function detectLoop() {
   const d = detector;
   const now = performance.now();
 
+  // --- Always read audio and update the envelope ---
+  // The envelope must track sustained energy continuously (even during lockout)
+  // so that new strum attacks are detected as transients above the background.
+  d.analyser.getFloatTimeDomainData(d.timeDomainBuffer);
+  const rms = computeRMS(d.timeDomainBuffer);
+
+  // Update envelope: slow-decay exponential moving average.
+  // Follows sustained energy downward slowly, so new attacks spike above it.
+  d.envelope = d.envelope * (1 - ENVELOPE_ALPHA) + rms * ENVELOPE_ALPHA;
+
   // --- Hard lockout ---
-  // After an onset, do NO audio analysis at all — complete dead zone.
-  // Guitar string sustain/decay cannot trigger anything during this period.
+  // After an onset, no new onsets fire for this period.
+  // Audio is still read above to keep the envelope current.
   // After upstrums, lockout is extended to suppress bass string sympathetic ring.
   const effectiveLockout = d.lastDirection === 'U'
     ? d.lockoutMs * UPSTRUM_LOCKOUT_MULTIPLIER
     : d.lockoutMs;
 
   if (now - d.lastOnsetTime < effectiveLockout) {
+    // Reset prevFrameRMS so the first frame after lockout expires uses the
+    // fallback velocity check instead of comparing against a stale value.
+    d.prevFrameRMS = 0;
     d.animFrameId = requestAnimationFrame(detectLoop);
     return;
   }
 
-  // --- Read RMS ---
-  d.analyser.getFloatTimeDomainData(d.timeDomainBuffer);
-  const rms = computeRMS(d.timeDomainBuffer);
+  // --- Onset detection (sustain gate) ---
+  // A new strum fires when ALL three conditions are met:
+  //   1. RMS exceeds the smoothed envelope by TRANSIENT_RATIO (energy spike).
+  //   2. RMS exceeds ABS_MIN_RMS (not silence).
+  //   3. RMS at least doubled from the previous frame (attack velocity).
+  // Condition 3 is the sustain gate: real strum attacks cause a near-
+  // instantaneous jump within one animation frame (~16ms), while sustained
+  // string ring and resonance fluctuations change gradually and fail this.
+  const velocityOk = d.prevFrameRMS > 0
+    ? rms > d.prevFrameRMS * ATTACK_VELOCITY_RATIO
+    : rms > ABS_MIN_RMS; // first frame after lockout: fall back to floor check
 
-  // --- Onset detection ---
-  // Simple threshold check. After lockout expires this is the first audio
-  // read, so any attack transient above the threshold fires immediately.
-  // Sustained ring from a previous strum will have decayed during lockout.
-  if (rms > RMS_THRESHOLD) {
-    // --- Peak suppression ---
-    // If the new onset is much weaker than the previous one, it's likely
-    // residual vibration (e.g., bass strings ringing after an upstrum),
-    // not a genuine new attack. Suppress it and extend lockout.
-    if (d.lastOnsetRMS > 0 && rms < d.lastOnsetRMS * PEAK_SUPPRESSION_RATIO) {
-      console.log(`[detection] suppressed — rms: ${rms.toFixed(4)}, prev: ${d.lastOnsetRMS.toFixed(4)}, ratio: ${(rms / d.lastOnsetRMS).toFixed(2)}`);
-      d.lastOnsetTime = now;
-      d.animFrameId = requestAnimationFrame(detectLoop);
-      return;
-    }
-
+  if (rms > d.envelope * TRANSIENT_RATIO && rms > ABS_MIN_RMS && velocityOk) {
     d.lastOnsetTime = now;
     d.lastOnsetRMS = rms;
     const onsetTime = now - LATENCY_COMPENSATION_MS;
@@ -241,12 +263,15 @@ function detectLoop() {
     const { direction, confidence } = classifyDirection(d);
     d.lastDirection = direction;
 
-    console.log(`[detection] onset — rms: ${rms.toFixed(4)}, dir: ${direction}, conf: ${confidence.toFixed(2)}`);
-
     if (d.onOnset) {
       d.onOnset(onsetTime, direction, confidence);
     }
   }
+
+  // Track previous frame RMS for velocity check on next iteration.
+  // Reset to 0 during lockout so the first post-lockout frame uses the
+  // fallback check instead of comparing against a stale value.
+  d.prevFrameRMS = rms;
 
   d.animFrameId = requestAnimationFrame(detectLoop);
 }
