@@ -437,116 +437,6 @@
       margin-bottom: var(--space-xs);
     }
 
-    /* --- Calibration Section --- */
-    .strum-calibration {
-      grid-column: 1 / -1;
-      background: var(--color-bg);
-      border-radius: var(--radius-md);
-      padding: var(--space-md);
-    }
-
-    .strum-calibration__header {
-      font-size: var(--font-size-sm);
-      font-weight: var(--font-weight-bold);
-      color: var(--color-text);
-      margin-bottom: var(--space-sm);
-    }
-
-    .strum-calibration__row {
-      display: flex;
-      align-items: center;
-      gap: var(--space-md);
-      flex-wrap: wrap;
-    }
-
-    .strum-calibration__status {
-      font-size: var(--font-size-sm);
-      color: var(--color-text-light);
-    }
-
-    .strum-calibration__status--ok {
-      color: var(--color-success);
-    }
-
-    /* --- Calibration Overlay --- */
-    .strum-calibration-overlay[hidden] {
-      display: none;
-    }
-
-    .strum-calibration-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.5);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 1000;
-      animation: fade-in 0.25s ease-out;
-    }
-
-    .strum-calibration-overlay__inner {
-      max-width: 400px;
-      width: 90%;
-      padding: var(--space-xl);
-      text-align: center;
-      background: var(--color-bg-card);
-      border-radius: var(--radius-lg);
-      box-shadow: var(--shadow-lg);
-    }
-
-    .strum-calibration-overlay__phase {
-      font-size: var(--font-size-2xl);
-      font-weight: var(--font-weight-extra-bold);
-      color: var(--color-primary);
-      margin-bottom: var(--space-md);
-    }
-
-    .strum-calibration-overlay__count {
-      font-size: var(--font-size-xl);
-      color: var(--color-text);
-      margin-bottom: var(--space-lg);
-    }
-
-    .strum-calibration-overlay__hint {
-      font-size: var(--font-size-sm);
-      color: var(--color-text-light);
-      margin-bottom: var(--space-lg);
-    }
-
-    .strum-calibration-overlay__meter-label {
-      font-size: var(--font-size-xs);
-      color: var(--color-text-muted);
-      text-align: left;
-      margin-bottom: var(--space-xs);
-    }
-
-    .strum-calibration-overlay__meter {
-      position: relative;
-      width: 100%;
-      height: 16px;
-      background: var(--color-border);
-      border-radius: var(--radius-full);
-      overflow: hidden;
-      margin-bottom: var(--space-lg);
-    }
-
-    .strum-calibration-overlay__meter-fill {
-      height: 100%;
-      width: 0%;
-      border-radius: var(--radius-full);
-      background: var(--color-warning);
-      transition: width 0.06s ease;
-    }
-
-    .strum-calibration-overlay__meter-threshold {
-      position: absolute;
-      top: 0;
-      height: 100%;
-      width: 2px;
-      background: rgba(0, 0, 0, 0.4);
-      z-index: 1;
-    }
-
     /* --- Responsive --- */
     @media (max-width: 480px) {
       .strum-setup__grid {
@@ -630,9 +520,9 @@
           <div class="form-group">
             <label class="form-label" for="difficulty">Difficulty</label>
             <select id="difficulty" class="form-select">
-              <option value="easy">Easy (timing only, &plusmn;100ms)</option>
-              <option value="medium" selected>Medium (direction bonus, &plusmn;60ms)</option>
-              <option value="hard">Hard (direction required, &plusmn;30ms)</option>
+              <option value="easy">Easy (&plusmn;100ms)</option>
+              <option value="medium" selected>Medium (&plusmn;60ms)</option>
+              <option value="hard">Hard (&plusmn;30ms)</option>
             </select>
           </div>
 
@@ -660,20 +550,15 @@
             <span id="tap-feedback" class="strum-tap-feedback">Tap the button or press space 4+ times to set tempo</span>
           </div>
 
-          <!-- Strum Direction Calibration -->
-          <div class="strum-calibration">
-            <div class="strum-calibration__header">Strum Direction Detection</div>
-            <div class="strum-calibration__row">
-              <button id="btn-calibrate" class="btn btn--secondary btn--small" type="button">
-                Calibrate
-              </button>
-              <button id="btn-clear-calibration" class="btn btn--secondary btn--small" type="button" hidden>
-                Clear
-              </button>
-              <span id="calibration-status" class="strum-calibration__status">
-                Not calibrated — using defaults
-              </span>
-            </div>
+          <!-- Timing Offset -->
+          <div class="form-group strum-tap-row">
+            <label class="form-label" style="margin: 0;">Timing Offset</label>
+            <input type="range" id="timing-offset-slider"
+                   min="-100" max="100" value="0" step="5"
+                   style="flex: 1; min-width: 120px;"
+                   aria-label="Timing offset in milliseconds">
+            <span id="timing-offset-value" style="min-width: 4em; text-align: center; font-weight: var(--font-weight-bold);">0ms</span>
+            <span class="strum-tap-feedback">Shift if strums feel early (−) or late (+)</span>
           </div>
 
           <!-- Audible Click Option -->
@@ -796,10 +681,6 @@
                 <div class="strum-practice-summary__stat-value" id="psum-measures">0</div>
                 <div class="strum-practice-summary__stat-label">Measures Played</div>
               </div>
-              <div class="strum-practice-summary__stat" id="psum-direction-wrap" hidden>
-                <div class="strum-practice-summary__stat-value" id="psum-direction">—</div>
-                <div class="strum-practice-summary__stat-label">Direction Acc.</div>
-              </div>
             </div>
             <div class="strum-practice-summary__timing" id="psum-timing"></div>
             <div class="strum-practice-summary__buttons">
@@ -837,10 +718,6 @@
             <div class="score-display__value" id="result-hits">0/0</div>
             <div class="score-display__label">Strums Hit</div>
           </div>
-          <div class="score-display__item" id="result-direction-wrap" hidden>
-            <div class="score-display__value" id="result-direction">—</div>
-            <div class="score-display__label">Direction</div>
-          </div>
         </div>
 
         <!-- Timing Histogram -->
@@ -873,24 +750,6 @@
       </div>
     </section>
 
-    <!-- Calibration Overlay -->
-    <div id="calibration-overlay" class="strum-calibration-overlay" hidden>
-      <div class="strum-calibration-overlay__inner">
-        <div id="cal-phase" class="strum-calibration-overlay__phase">Strum DOWN</div>
-        <div id="cal-count" class="strum-calibration-overlay__count">0 / 4</div>
-        <div id="cal-hint" class="strum-calibration-overlay__hint">
-          Strum firmly across all strings — downward stroke
-        </div>
-        <div class="strum-calibration-overlay__meter-label">Volume — strum until the bar turns green</div>
-        <div class="strum-calibration-overlay__meter">
-          <div id="cal-meter-fill" class="strum-calibration-overlay__meter-fill"></div>
-          <div id="cal-meter-threshold" class="strum-calibration-overlay__meter-threshold"></div>
-        </div>
-        <button id="btn-cancel-calibration" class="btn btn--secondary" type="button">
-          Cancel
-        </button>
-      </div>
-    </div>
   </main>
 
   <script type="module">
@@ -904,8 +763,7 @@
       getSessionFeedback, isAIAvailable
     } from '../shared/ai.js';
     import { getAllPatterns, getPatternById, BUILT_IN_PATTERNS } from './patterns.js';
-    import { startDetection, stopDetection, setDetectionBpm } from './detection.js';
-    import { hasCalibration, runCalibration, clearCalibration, CALIBRATION_RMS_THRESHOLD } from './calibration.js';
+    import { startDetection, stopDetection, setDetectionBpm, setLatencyCompensation, getLatencyCompensation } from './detection.js';
 
     /* ---------------------------------------------------------- */
     /*  Constants                                                  */
@@ -920,14 +778,6 @@
     const STREAK_BONUS_POINTS = 1;
 
     const DIFFICULTY_LOOKAHEAD_MEASURES = { easy: 2, medium: 1, hard: 0 };
-
-    // Direction scoring — per-difficulty bonuses/penalties
-    const DIRECTION_POINTS = {
-      medium_bonus: 1,             // +1 for correct direction on medium
-      hard_correct: 1,             // +1 for correct high-confidence direction on hard
-      hard_wrong_penalty: -1,      // -1 for wrong high-confidence direction on hard
-      hard_confidence_threshold: 0.7,
-    };
 
     const CLICK_FREQ_DOWNBEAT = 1000;
     const CLICK_FREQ_BEAT = 800;
@@ -981,8 +831,8 @@
       isPlaying: false,
 
       // Scoring
-      results: [],             // [{expected, actual, deltaMs, grade, expectedDirection, detectedDirection, detectedConfidence, directionCorrect}]
-      detectedStrums: [],      // [{time, direction, confidence}] raw detected strum data
+      results: [],             // [{expected, actual, deltaMs, grade}]
+      detectedStrums: [],      // [{time}] raw detected strum timestamps
       score: 0,
       streak: 0,
       bestStreak: 0,
@@ -1014,8 +864,14 @@
 
       bindEvents();
       updatePatternPreview();
-      updateCalibrationStatus();
       renderLeaderboard($('setup-leaderboard'), GAME_ID, 10);
+
+      // Restore saved timing offset to slider
+      const savedOffset = getLatencyCompensation();
+      if (savedOffset !== 0) {
+        $('timing-offset-slider').value = savedOffset;
+        $('timing-offset-value').textContent = `${savedOffset > 0 ? '+' : ''}${savedOffset}ms`;
+      }
     }
 
     function populatePatternSelect() {
@@ -1078,12 +934,8 @@
       $('bpm-slider').addEventListener('input', () => setBpm(+$('bpm-slider').value));
       $('bpm-input').addEventListener('change', () => setBpm(+$('bpm-input').value));
       $('btn-tap-in').addEventListener('click', handleTapIn);
+      $('timing-offset-slider').addEventListener('input', handleTimingOffset);
       $('btn-start').addEventListener('click', handleStart);
-
-      // Calibration
-      $('btn-calibrate').addEventListener('click', handleCalibrate);
-      $('btn-clear-calibration').addEventListener('click', handleClearCalibration);
-      $('btn-cancel-calibration').addEventListener('click', cancelCalibration);
 
       // Game
       $('btn-stop').addEventListener('click', handleStop);
@@ -1132,6 +984,12 @@
       $('tap-feedback').textContent = `Detected ${clamped} BPM (${tapTimes.length} taps)`;
     }
 
+    function handleTimingOffset() {
+      const val = parseInt($('timing-offset-slider').value, 10);
+      $('timing-offset-value').textContent = `${val > 0 ? '+' : ''}${val}ms`;
+      setLatencyCompensation(val);
+    }
+
     function handleKeydown(e) {
       if (e.code === 'Space') {
         e.preventDefault();
@@ -1139,7 +997,7 @@
         if (state.screen === 'setup') {
           handleTapIn();
         } else if (state.screen === 'game' && state.isPlaying) {
-          registerStrum(performance.now(), null, 0);
+          registerStrum(performance.now());
         }
       }
     }
@@ -1203,8 +1061,8 @@
       }
 
       // Start mic detection (pass BPM so lockout scales with tempo)
-      const micOk = await startDetection(state.audioCtx, (time, direction, confidence) => {
-        if (state.isPlaying) registerStrum(time, direction, confidence);
+      const micOk = await startDetection(state.audioCtx, (time) => {
+        if (state.isPlaying) registerStrum(time);
       }, state.bpm);
 
       if (!micOk) {
@@ -1493,8 +1351,8 @@
     /*  Strum Registration & Scoring                               */
     /* ---------------------------------------------------------- */
 
-    function registerStrum(time, direction = null, confidence = 0) {
-      state.detectedStrums.push({ time, direction, confidence });
+    function registerStrum(time) {
+      state.detectedStrums.push({ time });
 
       // Find nearest unmatched expected strum
       const tolerance = TOLERANCE[state.difficulty];
@@ -1529,25 +1387,8 @@
         const grade = isPerfect ? 'perfect' : 'hit';
         exp.grade = grade;
 
-        // Base timing points + streak bonus
-        let points = POINTS[grade] + (state.streak >= STREAK_BONUS_THRESHOLD ? STREAK_BONUS_POINTS : 0);
-
-        // Evaluate direction
-        const dirCorrect = direction !== null && direction === exp.direction;
-        const dirWrong = direction !== null && direction !== exp.direction;
-
-        if (state.difficulty === 'medium' && dirCorrect) {
-          points += DIRECTION_POINTS.medium_bonus;
-        } else if (state.difficulty === 'hard') {
-          if (dirCorrect && confidence >= DIRECTION_POINTS.hard_confidence_threshold) {
-            points += DIRECTION_POINTS.hard_correct;
-          } else if (dirWrong && confidence >= DIRECTION_POINTS.hard_confidence_threshold) {
-            points += DIRECTION_POINTS.hard_wrong_penalty;
-          }
-        }
-
-        // Floor at 0
-        points = Math.max(0, points);
+        // Timing points + streak bonus
+        const points = POINTS[grade] + (state.streak >= STREAK_BONUS_THRESHOLD ? STREAK_BONUS_POINTS : 0);
 
         state.score += points;
         state.streak++;
@@ -1558,10 +1399,6 @@
           actual: time,
           deltaMs: delta,
           grade,
-          expectedDirection: exp.direction,
-          detectedDirection: direction,
-          detectedConfidence: confidence,
-          directionCorrect: dirCorrect,
         });
         state.timingHistory.push(delta);
         if (state.timingHistory.length > TIMING_HISTORY_SIZE) state.timingHistory.shift();
@@ -1570,6 +1407,7 @@
         state.loopTotal++;
 
         recordAttempt(GAME_ID, state.pattern.name, { hit: true, responseMs: bestDelta });
+        console.log(`[registerStrum] ${grade} delta=${delta.toFixed(1)}ms expected=${exp.time.toFixed(0)} actual=${time.toFixed(0)}`);
       } else {
         // Extra strum — at wrong time or no nearby expected strum.
         // Does NOT reset streak; only missed expected strum slots reset streak.
@@ -1578,11 +1416,8 @@
           actual: time,
           deltaMs: null,
           grade: 'extra',
-          expectedDirection: null,
-          detectedDirection: direction,
-          detectedConfidence: confidence,
-          directionCorrect: null,
         });
+        console.log(`[registerStrum] extra strum at=${time.toFixed(0)} (no match within ±${tolerance}ms)`);
       }
 
       updateStats();
@@ -1599,8 +1434,6 @@
           exp.grade = 'miss';
           state.results.push({
             expected: exp.time, actual: null, deltaMs: null, grade: 'miss',
-            expectedDirection: exp.direction, detectedDirection: null,
-            detectedConfidence: 0, directionCorrect: null,
           });
           state.streak = 0;
           state.loopTotal++;
@@ -1782,51 +1615,32 @@
         }
       }
 
-      // --- Draw detected strums ---
+      // --- Draw detected strums (timing markers) ---
       for (const strum of state.detectedStrums) {
         const dt = strum.time - now;
         const x = playheadX + dt * pxPerMs;
 
         if (x < -40 || x > W + 40) continue;
 
-        // Find matching result
+        // Find matching result — color by timing accuracy
         const result = state.results.find((r) => r.actual === strum.time);
         let color = '#b2bec3'; // default gray
 
         if (result) {
-          if (state.difficulty === 'easy') {
-            // Easy: timing-based colors only
-            if (result.grade === 'perfect') color = '#00b894';
-            else if (result.grade === 'hit') color = '#fdcb6e';
-            else if (result.grade === 'extra') color = '#d63031';
-          } else {
-            // Medium/Hard: direction-aware colors
-            if (result.grade === 'extra') {
-              color = '#d63031';
-            } else if (result.directionCorrect === true) {
-              color = '#00b894'; // green — correct direction
-            } else if (result.detectedDirection === null) {
-              color = '#fdcb6e'; // yellow — unknown direction
-            } else {
-              color = '#e17055'; // orange — wrong direction
-            }
-          }
+          if (result.grade === 'perfect') color = '#00b894';      // green
+          else if (result.grade === 'hit') color = '#fdcb6e';     // yellow
+          else if (result.grade === 'extra') color = '#d63031';   // red
         }
 
-        // Draw as arrow if direction is known, diamond if unknown
-        if (strum.direction) {
-          drawArrow(ctx, x, detectedRowY, strum.direction, color, false);
-        } else {
-          // Diamond fallback (spacebar or null direction)
-          ctx.fillStyle = color;
-          ctx.beginPath();
-          ctx.moveTo(x, detectedRowY - 10);
-          ctx.lineTo(x + 7, detectedRowY);
-          ctx.lineTo(x, detectedRowY + 10);
-          ctx.lineTo(x - 7, detectedRowY);
-          ctx.closePath();
-          ctx.fill();
-        }
+        // Draw timing marker (diamond)
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.moveTo(x, detectedRowY - 10);
+        ctx.lineTo(x + 7, detectedRowY);
+        ctx.lineTo(x, detectedRowY + 10);
+        ctx.lineTo(x - 7, detectedRowY);
+        ctx.closePath();
+        ctx.fill();
       }
 
       // --- Draw connecting lines between matched pairs ---
@@ -1988,15 +1802,6 @@
       $('psum-hits').textContent = `${hits}/${total}`;
       $('psum-measures').textContent = state.currentMeasure + 1;
 
-      // Direction accuracy (medium/hard only)
-      const directionAccuracy = computeDirectionAccuracy();
-      if (state.difficulty !== 'easy' && directionAccuracy !== null) {
-        $('psum-direction-wrap').hidden = false;
-        $('psum-direction').textContent = directionAccuracy + '%';
-      } else {
-        $('psum-direction-wrap').hidden = true;
-      }
-
       // Timing tendency from history
       const deltas = state.results
         .filter((r) => r.deltaMs !== null && r.grade !== 'extra')
@@ -2023,7 +1828,6 @@
         pattern: state.pattern.name,
         bpm: state.bpm,
         bestStreak: state.bestStreak,
-        directionAccuracy,
       });
 
       $('practice-summary').hidden = false;
@@ -2046,15 +1850,6 @@
       const total = expectedInTest.length;
       const accuracy = total > 0 ? Math.round((hits / total) * 100) : 0;
 
-      // Direction accuracy
-      const directionAccuracy = computeDirectionAccuracy();
-      if (state.difficulty !== 'easy' && directionAccuracy !== null) {
-        $('result-direction-wrap').hidden = false;
-        $('result-direction').textContent = directionAccuracy + '%';
-      } else {
-        $('result-direction-wrap').hidden = true;
-      }
-
       // Show results
       $('result-score').textContent = state.score;
       $('result-accuracy').textContent = accuracy + '%';
@@ -2069,7 +1864,6 @@
           bpm: state.bpm,
           accuracy,
           bestStreak: state.bestStreak,
-          directionAccuracy,
         });
       }
 
@@ -2082,7 +1876,6 @@
         pattern: state.pattern.name,
         bpm: state.bpm,
         bestStreak: state.bestStreak,
-        directionAccuracy,
       };
       recordSession(GAME_ID, sessionData);
 
@@ -2198,122 +1991,6 @@
       ctx.fillText('Early', 4, 12);
       ctx.textAlign = 'right';
       ctx.fillText('Late', W - 4, 12);
-    }
-
-    /* ---------------------------------------------------------- */
-    /*  Direction Accuracy                                         */
-    /* ---------------------------------------------------------- */
-
-    function computeDirectionAccuracy() {
-      // Only count matched results (not extras/misses) where direction was detected
-      const relevant = state.results.filter(
-        (r) => r.grade !== 'extra' && r.grade !== 'miss' && r.expectedDirection && r.detectedDirection
-      );
-      if (relevant.length === 0) return null;
-      const correct = relevant.filter((r) => r.directionCorrect).length;
-      return Math.round((correct / relevant.length) * 100);
-    }
-
-    /* ---------------------------------------------------------- */
-    /*  Calibration Handlers                                       */
-    /* ---------------------------------------------------------- */
-
-    let calibrationAbortController = null;
-
-    function updateCalibrationStatus() {
-      if (hasCalibration()) {
-        $('calibration-status').textContent = 'Calibrated';
-        $('calibration-status').className = 'strum-calibration__status strum-calibration__status--ok';
-        $('btn-clear-calibration').hidden = false;
-      } else {
-        $('calibration-status').textContent = 'Not calibrated — using defaults';
-        $('calibration-status').className = 'strum-calibration__status';
-        $('btn-clear-calibration').hidden = true;
-      }
-    }
-
-    async function handleCalibrate() {
-      // Init audio context
-      if (!state.audioCtx) {
-        state.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      }
-      if (state.audioCtx.state === 'suspended') {
-        await state.audioCtx.resume();
-      }
-
-      // Request mic
-      let micStream;
-      try {
-        micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      } catch {
-        $('calibration-status').textContent = 'Mic access denied';
-        return;
-      }
-
-      const analyser = state.audioCtx.createAnalyser();
-      analyser.fftSize = 2048;
-      analyser.smoothingTimeConstant = 0.3;
-      const source = state.audioCtx.createMediaStreamSource(micStream);
-      source.connect(analyser);
-
-      // Show overlay and set up meter
-      $('calibration-overlay').hidden = false;
-      $('cal-meter-fill').style.width = '0%';
-      const meterMax = 0.3;
-      $('cal-meter-threshold').style.left = (CALIBRATION_RMS_THRESHOLD / meterMax * 100) + '%';
-
-      calibrationAbortController = new AbortController();
-
-      const data = await runCalibration(state.audioCtx, analyser, {
-        onPhase(phase) {
-          if (phase === 'down') {
-            $('cal-phase').textContent = 'Strum DOWN';
-            $('cal-hint').textContent = 'Strum firmly across all strings — downward stroke';
-            $('cal-count').textContent = '0 / 4';
-          } else {
-            $('cal-phase').textContent = 'Strum UP';
-            $('cal-hint').textContent = 'Strum firmly across all strings — upward stroke';
-            $('cal-count').textContent = '0 / 4';
-          }
-        },
-        onStrum(phase, count) {
-          $('cal-count').textContent = `${count} / 4`;
-        },
-        onLevel(rms) {
-          const pct = Math.min(100, (rms / meterMax) * 100);
-          const fill = $('cal-meter-fill');
-          fill.style.width = pct + '%';
-          fill.style.background = rms >= CALIBRATION_RMS_THRESHOLD
-            ? 'var(--color-success)' : 'var(--color-warning)';
-        },
-        onComplete() {
-          // Will be handled below
-        },
-        onError(msg) {
-          console.warn('[calibration] Error:', msg);
-        },
-      }, calibrationAbortController.signal);
-
-      // Cleanup mic
-      micStream.getTracks().forEach((t) => t.stop());
-      try { source.disconnect(); } catch { /* ignore */ }
-
-      // Hide overlay
-      $('calibration-overlay').hidden = true;
-      calibrationAbortController = null;
-
-      updateCalibrationStatus();
-    }
-
-    function cancelCalibration() {
-      if (calibrationAbortController) {
-        calibrationAbortController.abort();
-      }
-    }
-
-    function handleClearCalibration() {
-      clearCalibration();
-      updateCalibrationStatus();
     }
 
     /* ---------------------------------------------------------- */

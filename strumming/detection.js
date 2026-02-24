@@ -7,9 +7,11 @@
  *   2. Detect onset when ALL conditions are met:
  *      a. Instantaneous RMS exceeds envelope × TRANSIENT_RATIO (1.5×).
  *      b. Instantaneous RMS exceeds ABS_MIN_RMS (absolute floor).
- *      c. RMS at least doubled from the previous frame (ATTACK_VELOCITY_RATIO).
+ *      c. RMS increased by at least 30% from the previous frame (ATTACK_VELOCITY_RATIO).
  *   3. Fire onset, then enter hard lockout — no onset detection during lockout.
  *   4. During lockout, audio is still read to keep the envelope up to date.
+ *   5. On the first frame after lockout expires, read RMS as a baseline for the
+ *      velocity check but do NOT check for onset. Detection resumes next frame.
  *
  * The frame-to-frame velocity check (condition c) is the key differentiator
  * between real strum attacks and sustained string vibrations. A real attack
@@ -17,14 +19,14 @@
  * frame (~16ms), while resonance and string ring fluctuate gradually over
  * many frames.
  *
- * Additional filtering:
- *   - After an upstrum, lockout is extended by 1.2× because upstrums cause
- *     more bass string sympathetic vibration that can mimic a downstrum.
- *
- * Also classifies strum direction (down vs up) using spectral centroid and
- * low/high energy ratio features, optionally calibrated per-user.
+ * Direction classification (down vs up) using spectral features is available
+ * in classifyDirection() but currently disabled. The onset callback only
+ * reports timing. Direction detection is planned for future improvement once
+ * accuracy is more reliable.
  */
 
+// Direction classification helpers — kept for future use. classifyDirection()
+// below uses these but is not called during active detection.
 import {
   getCalibrationData,
   computeSpectralCentroid,
@@ -36,7 +38,20 @@ import {
 /* ---------------------------------------------------------- */
 
 const FFT_SIZE = 2048;
-const LATENCY_COMPENSATION_MS = 0;
+
+const LATENCY_STORAGE_KEY = 'mtt_strumming_latency_ms';
+
+// One-time cleanup: clear any previously auto-detected latency values that
+// included human reaction time (~350ms) and grossly over-corrected timing.
+// The new approach uses a manual timing offset slider (default 0).
+try {
+  const old = localStorage.getItem(LATENCY_STORAGE_KEY);
+  if (old !== null && parseFloat(old) > 100) {
+    localStorage.removeItem(LATENCY_STORAGE_KEY);
+  }
+} catch { /* ignore */ }
+
+let latencyCompensationMs = loadLatencyCompensation();
 
 // Absolute minimum RMS floor — prevents silence from triggering.
 const ABS_MIN_RMS = 0.05;
@@ -51,23 +66,20 @@ const TRANSIENT_RATIO = 1.5;
 const ENVELOPE_ALPHA = 0.005;
 
 // Frame-to-frame velocity check — current RMS must be at least this multiple
-// of the previous frame's RMS. Real strum attacks cause a near-instantaneous
-// jump in amplitude within one animation frame (~16ms). Sustained string
-// vibrations and resonance fluctuations change gradually over many frames
-// and fail this check.
-const ATTACK_VELOCITY_RATIO = 2.0;
+// of the previous frame's RMS. Real strum attacks cause a noticeable jump in
+// amplitude within one animation frame (~16ms). Sustained string vibrations
+// and resonance fluctuations change gradually over many frames and fail this.
+// Lowered from 2.0 to 1.3 — a 30% increase is still indicative of a real
+// attack while being achievable for real strums picked up by typical mics.
+const ATTACK_VELOCITY_RATIO = 1.3;
 
 // Hard lockout: after an onset, no new onsets fire for this many ms.
 // Audio is still read during lockout to keep the envelope up to date.
 // Dynamically scaled to Math.min(DEFAULT_LOCKOUT_MS, eighthNoteMs * 0.7).
 const DEFAULT_LOCKOUT_MS = 400;
 
-// After an upstrum, extend lockout by this factor. Upstrums cause bass
-// strings to ring sympathetically, producing low-frequency energy that
-// the direction classifier misreads as a downstrum.
-const UPSTRUM_LOCKOUT_MULTIPLIER = 1.2;
-
-// Direction classification defaults (used when no calibration data exists)
+// Direction classification constants (currently unused — direction detection
+// is disabled but kept for future use)
 const LOW_HIGH_CUTOFF_HZ = 400;
 const DEFAULT_CENTROID_THRESHOLD = 750;
 const DEFAULT_RATIO_THRESHOLD = 2.0;
@@ -87,9 +99,7 @@ let detector = null;
  * Start onset detection using the microphone.
  *
  * @param {AudioContext} audioCtx - Existing AudioContext to use
- * @param {function} onOnset - Callback called with (timestamp, direction, confidence)
- *                             on each detected strum. direction is 'D'|'U'|null,
- *                             confidence is 0.0-1.0.
+ * @param {function} onOnset - Callback called with (timestamp) on each detected strum.
  * @param {number} [bpm=0] - Current tempo. Used to compute lockout duration.
  *                            Pass 0 to use DEFAULT_LOCKOUT_MS.
  * @returns {Promise<boolean>} true if mic access granted, false otherwise
@@ -115,10 +125,6 @@ export async function startDetection(audioCtx, onOnset, bpm = 0) {
   source.connect(analyser);
 
   const timeDomainBuffer = new Float32Array(analyser.fftSize);
-  const freqBuffer = new Float32Array(analyser.frequencyBinCount);
-
-  // Load calibration data for direction classification
-  const calibration = getCalibrationData();
 
   detector = {
     audioCtx,
@@ -126,17 +132,15 @@ export async function startDetection(audioCtx, onOnset, bpm = 0) {
     analyser,
     source,
     timeDomainBuffer,
-    freqBuffer,
     lastOnsetTime: 0,
     lastOnsetRMS: 0,
-    lastDirection: null,
     envelope: 0,          // Smoothed RMS envelope (EMA)
     prevFrameRMS: 0,      // RMS from the immediately previous frame
+    skipNextFrame: false,  // After lockout expires, skip one frame to establish baseline
     lockoutMs: computeLockout(bpm),
     running: true,
     animFrameId: 0,
     onOnset,
-    calibration,
   };
 
   // Kick off detection loop
@@ -188,9 +192,46 @@ export function setDetectionBpm(bpm) {
   }
 }
 
+/**
+ * Set audio latency compensation and persist to localStorage.
+ *
+ * @param {number} ms - Latency in milliseconds to subtract from onset timestamps
+ */
+export function setLatencyCompensation(ms) {
+  latencyCompensationMs = ms;
+  try {
+    localStorage.setItem(LATENCY_STORAGE_KEY, String(ms));
+  } catch { /* localStorage unavailable */ }
+}
+
+/**
+ * Get current latency compensation value in milliseconds.
+ *
+ * @returns {number}
+ */
+export function getLatencyCompensation() {
+  return latencyCompensationMs;
+}
+
 /* ---------------------------------------------------------- */
 /*  Internal Helpers                                          */
 /* ---------------------------------------------------------- */
+
+/**
+ * Load latency compensation from localStorage.
+ *
+ * @returns {number} Saved latency in ms, or 0 if not set
+ */
+function loadLatencyCompensation() {
+  try {
+    const val = localStorage.getItem(LATENCY_STORAGE_KEY);
+    if (val !== null) {
+      const parsed = parseFloat(val);
+      return Number.isFinite(parsed) ? parsed : 0;
+    }
+  } catch { /* localStorage unavailable */ }
+  return 0;
+}
 
 /**
  * Compute the lockout duration from a BPM value.
@@ -228,15 +269,20 @@ function detectLoop() {
   // --- Hard lockout ---
   // After an onset, no new onsets fire for this period.
   // Audio is still read above to keep the envelope current.
-  // After upstrums, lockout is extended to suppress bass string sympathetic ring.
-  const effectiveLockout = d.lastDirection === 'U'
-    ? d.lockoutMs * UPSTRUM_LOCKOUT_MULTIPLIER
-    : d.lockoutMs;
+  // IMPORTANT: This check MUST return early — no onset logic below runs during lockout.
+  if (now - d.lastOnsetTime < d.lockoutMs) {
+    d.skipNextFrame = true;
+    d.animFrameId = requestAnimationFrame(detectLoop);
+    return;
+  }
 
-  if (now - d.lastOnsetTime < effectiveLockout) {
-    // Reset prevFrameRMS so the first frame after lockout expires uses the
-    // fallback velocity check instead of comparing against a stale value.
-    d.prevFrameRMS = 0;
+  // --- Post-lockout baseline frame ---
+  // The first frame after lockout expires is used to establish a fresh prevFrameRMS
+  // baseline. No onset detection runs — this prevents stale/zero prevFrameRMS from
+  // causing false triggers via the velocity check.
+  if (d.skipNextFrame) {
+    d.skipNextFrame = false;
+    d.prevFrameRMS = rms;
     d.animFrameId = requestAnimationFrame(detectLoop);
     return;
   }
@@ -245,34 +291,32 @@ function detectLoop() {
   // A new strum fires when ALL three conditions are met:
   //   1. RMS exceeds the smoothed envelope by TRANSIENT_RATIO (energy spike).
   //   2. RMS exceeds ABS_MIN_RMS (not silence).
-  //   3. RMS at least doubled from the previous frame (attack velocity).
-  // Condition 3 is the sustain gate: real strum attacks cause a near-
-  // instantaneous jump within one animation frame (~16ms), while sustained
+  //   3. RMS increased by at least 30% from the previous frame (attack velocity).
+  // Condition 3 is the sustain gate: real strum attacks cause a noticeable
+  // jump in amplitude within one animation frame (~16ms), while sustained
   // string ring and resonance fluctuations change gradually and fail this.
   const velocityOk = d.prevFrameRMS > 0
     ? rms > d.prevFrameRMS * ATTACK_VELOCITY_RATIO
-    : rms > ABS_MIN_RMS; // first frame after lockout: fall back to floor check
+    : false; // No valid baseline — skip this frame (should not happen after skip logic)
 
   if (rms > d.envelope * TRANSIENT_RATIO && rms > ABS_MIN_RMS && velocityOk) {
     d.lastOnsetTime = now;
     d.lastOnsetRMS = rms;
-    const onsetTime = now - LATENCY_COMPENSATION_MS;
+    const onsetTime = now - latencyCompensationMs;
 
-    // Read frequency data for direction classification
-    d.analyser.getFloatFrequencyData(d.freqBuffer);
-    const { direction, confidence } = classifyDirection(d);
-    d.lastDirection = direction;
+    const transRatio = d.envelope > 0 ? (rms / d.envelope).toFixed(2) : '—';
+    const velRatio = d.prevFrameRMS > 0 ? (rms / d.prevFrameRMS).toFixed(2) : '—';
+    console.log(
+      `[detect] >>> ONSET rms=${rms.toFixed(4)} env=${d.envelope.toFixed(4)} ` +
+      `trans=${transRatio} vel=${velRatio} lockoutMs=${d.lockoutMs.toFixed(0)}`
+    );
 
     if (d.onOnset) {
-      d.onOnset(onsetTime, direction, confidence);
+      d.onOnset(onsetTime);
     }
   }
 
-  // Track previous frame RMS for velocity check on next iteration.
-  // Reset to 0 during lockout so the first post-lockout frame uses the
-  // fallback check instead of comparing against a stale value.
   d.prevFrameRMS = rms;
-
   d.animFrameId = requestAnimationFrame(detectLoop);
 }
 
@@ -283,6 +327,11 @@ function detectLoop() {
 /**
  * Classify strum direction from the current spectral frame.
  *
+ * NOTE: Currently unused — direction detection is disabled. Kept for future use.
+ * To re-enable, call from detectLoop after reading frequency data with
+ * analyser.getFloatFrequencyData(freqBuffer), and add freqBuffer + calibration
+ * back to the detector state.
+ *
  * Two features vote independently:
  *   1. Spectral centroid: below threshold → D, above → U
  *   2. Low/high energy ratio: above threshold (more low energy) → D, below → U
@@ -290,10 +339,10 @@ function detectLoop() {
  * When both agree, confidence is boosted. When they disagree, the feature with
  * higher individual confidence wins at reduced overall confidence.
  *
- * @param {DetectorState} d
+ * @param {object} d - Detector state (needs audioCtx, analyser, freqBuffer, calibration)
  * @returns {{ direction: string|null, confidence: number }}
  */
-function classifyDirection(d) {
+function classifyDirection(d) { // eslint-disable-line no-unused-vars
   const sampleRate = d.audioCtx.sampleRate;
   const fftSize = d.analyser.fftSize;
 

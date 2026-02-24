@@ -41,38 +41,6 @@
       margin-bottom: var(--space-xs);
     }
 
-    /* --- Calibration Card (setup) --- */
-    .det-calibration {
-      background: var(--color-bg);
-      border-radius: var(--radius-md);
-      padding: var(--space-md);
-      margin-bottom: var(--space-xl);
-      text-align: left;
-    }
-
-    .det-calibration__header {
-      font-size: var(--font-size-sm);
-      font-weight: var(--font-weight-bold);
-      color: var(--color-text);
-      margin-bottom: var(--space-sm);
-    }
-
-    .det-calibration__row {
-      display: flex;
-      align-items: center;
-      gap: var(--space-md);
-      flex-wrap: wrap;
-    }
-
-    .det-calibration__status {
-      font-size: var(--font-size-sm);
-      color: var(--color-text-light);
-    }
-
-    .det-calibration__status--ok {
-      color: var(--color-success);
-    }
-
     /* --- Recording Screen --- */
     .det-recording {
       max-width: 560px;
@@ -479,85 +447,6 @@
       flex-wrap: wrap;
     }
 
-    /* --- Calibration Overlay --- */
-    .det-calibration-overlay[hidden] {
-      display: none;
-    }
-
-    .det-calibration-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.5);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 1000;
-      animation: fade-in 0.25s ease-out;
-    }
-
-    .det-calibration-overlay__inner {
-      max-width: 400px;
-      width: 90%;
-      padding: var(--space-xl);
-      text-align: center;
-      background: var(--color-bg-card);
-      border-radius: var(--radius-lg);
-      box-shadow: var(--shadow-lg);
-    }
-
-    .det-calibration-overlay__phase {
-      font-size: var(--font-size-2xl);
-      font-weight: var(--font-weight-extra-bold);
-      color: var(--color-primary);
-      margin-bottom: var(--space-md);
-    }
-
-    .det-calibration-overlay__count {
-      font-size: var(--font-size-xl);
-      color: var(--color-text);
-      margin-bottom: var(--space-lg);
-    }
-
-    .det-calibration-overlay__hint {
-      font-size: var(--font-size-sm);
-      color: var(--color-text-light);
-      margin-bottom: var(--space-lg);
-    }
-
-    .det-calibration-overlay__meter-label {
-      font-size: var(--font-size-xs);
-      color: var(--color-text-muted);
-      text-align: left;
-      margin-bottom: var(--space-xs);
-    }
-
-    .det-calibration-overlay__meter {
-      position: relative;
-      width: 100%;
-      height: 16px;
-      background: var(--color-border);
-      border-radius: var(--radius-full);
-      overflow: hidden;
-      margin-bottom: var(--space-lg);
-    }
-
-    .det-calibration-overlay__meter-fill {
-      height: 100%;
-      width: 0%;
-      border-radius: var(--radius-full);
-      background: var(--color-warning);
-      transition: width 0.06s ease;
-    }
-
-    .det-calibration-overlay__meter-threshold {
-      position: absolute;
-      top: 0;
-      height: 100%;
-      width: 2px;
-      background: rgba(0, 0, 0, 0.4);
-      z-index: 1;
-    }
-
     /* --- Responsive --- */
     @media (max-width: 480px) {
       .det-grid-display {
@@ -607,7 +496,7 @@
         <h1 class="mb-md">Pattern Detector</h1>
         <p class="det-setup__instructions">
           Record yourself strumming a pattern and this tool will detect the tempo,
-          strum directions, and match it against known patterns.
+          rhythm, and match it against known patterns.
         </p>
         <div class="det-setup__instructions">
           <ol>
@@ -615,22 +504,6 @@
             <li>Strum your guitar pattern for 2+ measures</li>
             <li>Click <strong>Stop</strong> when you're done</li>
           </ol>
-        </div>
-
-        <!-- Calibration -->
-        <div class="det-calibration">
-          <div class="det-calibration__header">Strum Direction Detection</div>
-          <div class="det-calibration__row">
-            <button id="btn-calibrate" class="btn btn--secondary btn--small" type="button">
-              Calibrate
-            </button>
-            <button id="btn-clear-calibration" class="btn btn--secondary btn--small" type="button" hidden>
-              Clear
-            </button>
-            <span id="calibration-status" class="det-calibration__status">
-              Not calibrated — using defaults
-            </span>
-          </div>
         </div>
 
         <button id="btn-start-recording" class="btn btn--primary btn--large">
@@ -767,24 +640,6 @@
       </div>
     </section>
 
-    <!-- Calibration Overlay -->
-    <div id="calibration-overlay" class="det-calibration-overlay" hidden>
-      <div class="det-calibration-overlay__inner">
-        <div id="cal-phase" class="det-calibration-overlay__phase">Strum DOWN</div>
-        <div id="cal-count" class="det-calibration-overlay__count">0 / 4</div>
-        <div id="cal-hint" class="det-calibration-overlay__hint">
-          Strum firmly across all strings — downward stroke
-        </div>
-        <div class="det-calibration-overlay__meter-label">Volume — strum until the bar turns green</div>
-        <div class="det-calibration-overlay__meter">
-          <div id="cal-meter-fill" class="det-calibration-overlay__meter-fill"></div>
-          <div id="cal-meter-threshold" class="det-calibration-overlay__meter-threshold"></div>
-        </div>
-        <button id="btn-cancel-calibration" class="btn btn--secondary" type="button">
-          Cancel
-        </button>
-      </div>
-    </div>
   </main>
 
   <script type="module">
@@ -793,7 +648,6 @@
     // ============================================================
 
     import { startDetection, stopDetection, setDetectionBpm } from '../strumming/detection.js';
-    import { hasCalibration, runCalibration, clearCalibration, CALIBRATION_RMS_THRESHOLD } from '../strumming/calibration.js';
     import { getAllPatterns, saveCustomPattern, gridToString } from '../strumming/patterns.js';
     import { isAIAvailable, getSessionFeedback, recordSession } from '../shared/ai.js';
 
@@ -818,7 +672,7 @@
       audioCtx: null,
       isRecording: false,
       recordStartTime: 0,
-      rawOnsets: [],           // [{time, direction, confidence}]
+      rawOnsets: [],           // [{time}]
       detectedBpm: 0,
       userBpm: 0,              // user-adjusted BPM
       detectedGrid: [],        // 8-element array: 'D'|'U'|'-'
@@ -835,7 +689,6 @@
     /* ---------------------------------------------------------- */
 
     function init() {
-      updateCalibrationStatus();
       bindEvents();
     }
 
@@ -857,11 +710,6 @@
 
       // Custom pattern save
       $('btn-save-custom').addEventListener('click', saveAsCustomPattern);
-
-      // Calibration
-      $('btn-calibrate').addEventListener('click', handleCalibrate);
-      $('btn-clear-calibration').addEventListener('click', handleClearCalibration);
-      $('btn-cancel-calibration').addEventListener('click', cancelCalibration);
     }
 
     /* ---------------------------------------------------------- */
@@ -922,10 +770,10 @@
       startLevelMeter();
     }
 
-    function onOnset(time, direction, confidence) {
+    function onOnset(time) {
       if (!state.isRecording) return;
 
-      state.rawOnsets.push({ time, direction, confidence });
+      state.rawOnsets.push({ time });
 
       // Update UI
       $('rec-strums').textContent = state.rawOnsets.length;
@@ -1129,7 +977,7 @@
       const startTime = onsets[0].time;
 
       // Map each onset to its slot in the measure
-      const measuredSlots = []; // [{measure, slot, direction, confidence}]
+      const measuredSlots = []; // [{measure, slot}]
 
       for (const onset of onsets) {
         const relTime = onset.time - startTime;
@@ -1140,8 +988,6 @@
         measuredSlots.push({
           measure,
           slot: slotInMeasure,
-          direction: onset.direction,
-          confidence: onset.confidence,
         });
       }
 
@@ -1156,12 +1002,8 @@
         const slotsInMeasure = measuredSlots.filter(s => s.measure === m);
 
         for (const s of slotsInMeasure) {
-          if (s.direction) {
-            grid[s.slot] = s.direction;
-          } else {
-            // Unknown direction: use heuristic (even=D, odd=U)
-            grid[s.slot] = s.slot % 2 === 0 ? 'D' : 'U';
-          }
+          // Direction detection disabled — use heuristic (even=D, odd=U)
+          grid[s.slot] = s.slot % 2 === 0 ? 'D' : 'U';
         }
 
         measureGrids.push(grid);
@@ -1305,14 +1147,12 @@
       $('results-grid-section').hidden = false;
       renderGrid(state.detectedGrid, $('results-grid'));
 
-      // All directions unknown note
-      const hasDirection = state.rawOnsets.some(o => o.direction !== null);
-      if (!hasDirection) {
-        const note = document.createElement('div');
-        note.style.cssText = 'font-size: var(--font-size-sm); color: var(--color-text-light); margin-top: var(--space-sm);';
-        note.textContent = 'Strum directions estimated (even beats = down, odd = up). Calibrate for more accurate detection.';
-        $('results-grid').parentNode.appendChild(note);
-      }
+      // Note: directions are estimated (even=D, odd=U) since direction
+      // detection is currently disabled.
+      const note = document.createElement('div');
+      note.style.cssText = 'font-size: var(--font-size-sm); color: var(--color-text-light); margin-top: var(--space-sm);';
+      note.textContent = 'Strum directions are estimated (even beats = down, odd = up).';
+      $('results-grid').parentNode.appendChild(note);
 
       // Stats
       $('results-stats').hidden = false;
@@ -1488,101 +1328,6 @@
       } else {
         $('ai-feedback-panel').hidden = true;
       }
-    }
-
-    /* ---------------------------------------------------------- */
-    /*  Calibration Handlers                                       */
-    /* ---------------------------------------------------------- */
-
-    let calibrationAbortController = null;
-
-    function updateCalibrationStatus() {
-      if (hasCalibration()) {
-        $('calibration-status').textContent = 'Calibrated';
-        $('calibration-status').className = 'det-calibration__status det-calibration__status--ok';
-        $('btn-clear-calibration').hidden = false;
-      } else {
-        $('calibration-status').textContent = 'Not calibrated — using defaults';
-        $('calibration-status').className = 'det-calibration__status';
-        $('btn-clear-calibration').hidden = true;
-      }
-    }
-
-    async function handleCalibrate() {
-      if (!state.audioCtx) {
-        state.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      }
-      if (state.audioCtx.state === 'suspended') {
-        await state.audioCtx.resume();
-      }
-
-      let micStream;
-      try {
-        micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      } catch {
-        $('calibration-status').textContent = 'Mic access denied';
-        return;
-      }
-
-      const analyser = state.audioCtx.createAnalyser();
-      analyser.fftSize = 2048;
-      analyser.smoothingTimeConstant = 0.3;
-      const source = state.audioCtx.createMediaStreamSource(micStream);
-      source.connect(analyser);
-
-      $('calibration-overlay').hidden = false;
-      $('cal-meter-fill').style.width = '0%';
-      const meterMax = 0.3;
-      $('cal-meter-threshold').style.left = (CALIBRATION_RMS_THRESHOLD / meterMax * 100) + '%';
-
-      calibrationAbortController = new AbortController();
-
-      await runCalibration(state.audioCtx, analyser, {
-        onPhase(phase) {
-          if (phase === 'down') {
-            $('cal-phase').textContent = 'Strum DOWN';
-            $('cal-hint').textContent = 'Strum firmly across all strings — downward stroke';
-            $('cal-count').textContent = '0 / 4';
-          } else {
-            $('cal-phase').textContent = 'Strum UP';
-            $('cal-hint').textContent = 'Strum firmly across all strings — upward stroke';
-            $('cal-count').textContent = '0 / 4';
-          }
-        },
-        onStrum(phase, count) {
-          $('cal-count').textContent = `${count} / 4`;
-        },
-        onLevel(rms) {
-          const pct = Math.min(100, (rms / meterMax) * 100);
-          const fill = $('cal-meter-fill');
-          fill.style.width = pct + '%';
-          fill.style.background = rms >= CALIBRATION_RMS_THRESHOLD
-            ? 'var(--color-success)' : 'var(--color-warning)';
-        },
-        onComplete() {},
-        onError(msg) {
-          console.warn('[detector calibration] Error:', msg);
-        },
-      }, calibrationAbortController.signal);
-
-      micStream.getTracks().forEach(t => t.stop());
-      try { source.disconnect(); } catch {}
-
-      $('calibration-overlay').hidden = true;
-      calibrationAbortController = null;
-
-      updateCalibrationStatus();
-    }
-
-    function cancelCalibration() {
-      if (calibrationAbortController) {
-        calibrationAbortController.abort();
-      }
-    }
-
-    function handleClearCalibration() {
-      clearCalibration();
-      updateCalibrationStatus();
     }
 
     /* ---------------------------------------------------------- */
