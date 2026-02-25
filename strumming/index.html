@@ -772,6 +772,7 @@
     const GAME_ID = 'strumming';
 
     const TOLERANCE = { easy: 100, medium: 60, hard: 30 };
+    const MIC_LATENCY_OFFSET_MS = 150; // fixed compensation for mic input latency
     const PERFECT_WINDOW = 10;
     const POINTS = { perfect: 3, hit: 2, miss: 0 };
     const STREAK_BONUS_THRESHOLD = 5;
@@ -1062,7 +1063,7 @@
 
       // Start mic detection (pass BPM so lockout scales with tempo)
       const micOk = await startDetection(state.audioCtx, (time) => {
-        if (state.isPlaying) registerStrum(time);
+        if (state.isPlaying) registerStrum(time - MIC_LATENCY_OFFSET_MS);
       }, state.bpm);
 
       if (!micOk) {
