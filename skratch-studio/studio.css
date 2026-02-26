@@ -1,0 +1,234 @@
+/* studio.css — Skratch Studio specific styles */
+
+.studio-layout {
+  display: flex;
+  gap: var(--space-md);
+  height: calc(100vh - 80px);
+  padding: var(--space-md);
+  box-sizing: border-box;
+}
+
+.studio-left {
+  flex: 6;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.studio-right {
+  flex: 4;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+/* --- Blockly Workspace --- */
+.blockly-container {
+  flex: 1;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 2px solid #3a3a50;
+  background: #1e1e2e;
+  position: relative;
+}
+
+#blocklyDiv {
+  width: 100%;
+  height: 100%;
+}
+
+/* --- Canvas Panel --- */
+.canvas-panel {
+  background: #1e1e2e;
+  border-radius: var(--radius-md);
+  border: 2px solid #3a3a50;
+  padding: var(--space-sm);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.canvas-wrapper {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  max-width: 500px;
+}
+
+#skratchCanvas {
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius-sm);
+  display: block;
+  image-rendering: auto;
+}
+
+.canvas-grid-bg {
+  background-color: #1e1e2e;
+  background-image:
+    radial-gradient(circle, #2a2a3e 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+/* --- Controls --- */
+.studio-controls {
+  display: flex;
+  gap: var(--space-sm);
+  padding: var(--space-sm) 0;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.studio-controls .btn {
+  min-width: 80px;
+}
+
+.btn--play {
+  background: var(--color-success);
+  color: #fff;
+  border: none;
+}
+.btn--play:hover {
+  background: var(--color-secondary-dark);
+}
+
+.btn--stop {
+  background: var(--color-error);
+  color: #fff;
+  border: none;
+}
+.btn--stop:hover {
+  background: #c0392b;
+}
+
+.starter-select {
+  margin-left: auto;
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-sm);
+  border: 1px solid #3a3a50;
+  background: #2a2a3e;
+  color: #cdd6f4;
+  font-size: var(--font-size-sm);
+  font-family: var(--font-family);
+  cursor: pointer;
+}
+
+/* --- Error Bar --- */
+.error-bar {
+  background: var(--color-error);
+  color: #fff;
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  font-family: var(--font-family-mono);
+  width: 100%;
+  max-width: 500px;
+  box-sizing: border-box;
+}
+
+/* --- Code Preview --- */
+.code-preview {
+  background: #181825;
+  border-radius: var(--radius-md);
+  border: 2px solid #3a3a50;
+  overflow: hidden;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.code-preview__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-sm) var(--space-md);
+  background: #1e1e2e;
+  border-bottom: 1px solid #3a3a50;
+  cursor: pointer;
+  user-select: none;
+}
+
+.code-preview__title {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-accent);
+}
+
+.code-preview__subtitle {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  display: block;
+  margin-top: 2px;
+}
+
+.code-preview__toggle {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  transition: transform var(--transition-fast);
+}
+.code-preview__toggle.open {
+  transform: rotate(180deg);
+}
+
+.code-preview__actions {
+  display: flex;
+  gap: var(--space-xs);
+  align-items: center;
+}
+
+.btn--copy {
+  background: transparent;
+  border: 1px solid #3a3a50;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.btn--copy:hover {
+  color: #cdd6f4;
+  border-color: #cdd6f4;
+}
+
+.code-preview__body {
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.code-preview__body.collapsed {
+  display: none;
+}
+
+.code-preview__code {
+  margin: 0;
+  padding: var(--space-md);
+  color: #cdd6f4;
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-sm);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* --- Responsive --- */
+@media (max-width: 900px) {
+  .studio-layout {
+    flex-direction: column;
+    height: auto;
+  }
+
+  .studio-left {
+    min-height: 400px;
+  }
+
+  .studio-right {
+    min-height: auto;
+  }
+
+  .canvas-wrapper {
+    max-width: 100%;
+  }
+}
