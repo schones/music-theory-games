@@ -19,8 +19,9 @@ music-theory-games/
 │   ├── config.js          # API key config (gitignored, not committed)
 │   └── config.example.js  # Template — copy to config.js and add your key
 ├── harmony/               # Interval training game
-│   ├── index.html         # Game page
-│   ├── intervals.js       # Game logic — practice/test modes, difficulty, scoring
+│   ├── index.html         # Game page (inline CSS/JS)
+│   ├── intervals.js       # Legacy game logic (not imported — superseded by inline JS in index.html)
+│   ├── interval-game.js   # Legacy game controller (not imported — superseded by inline JS in index.html)
 │   └── styles.css         # Game-specific styles
 ├── chords/                # Chord identification game
 │   └── index.html         # Game page (inline CSS/JS)
@@ -34,7 +35,8 @@ music-theory-games/
 │   ├── index.html         # Game page (inline CSS/JS), supports ?pattern=<id> URL param
 │   ├── patterns.js        # Strumming pattern definitions & custom pattern storage
 │   ├── detection.js       # Onset detection (transient/attack with hard lockout)
-│   └── calibration.js     # Strum direction calibration (kept for future use, not actively imported)
+│   ├── calibration.js     # Strum direction calibration (kept for future use, not actively imported)
+│   └── DIRECTION_DETECTION_README.md  # Technical reference for disabled direction detection
 └── detector/              # Strumming pattern detector tool
     └── index.html         # Tool page (inline CSS/JS)
 ```
@@ -43,7 +45,7 @@ music-theory-games/
 
 - **No frameworks.** Vanilla JS with ES6 modules (`type="module"` in script tags).
 - **No build step.** Files are served as-is. Use a local static server or open directly.
-- **Tone.js** (via CDN) for synthesis — reliable cross-browser audio with minimal setup.
+- **Tone.js 14.8.49** (via Cloudflare CDN) for synthesis — reliable cross-browser audio with minimal setup.
 - **Web Audio API** directly for pitch detection (autocorrelation algorithm).
 - **CSS custom properties** for theming — all colors, spacing, and typography in `shared/styles.css`.
 - **localStorage** for all persistence — scores, leaderboards, preferences. No backend.
@@ -177,7 +179,9 @@ if (feedback) showFeedbackToUser(feedback);
 - **Streak tracking** — Current streak and best streak displayed. Bonus points for streaks ≥ 3.
 - **Keyboard shortcuts** — Number keys 1–9 for quick interval selection during gameplay.
 
-### intervals.js Structure
+### Game Logic (inline in index.html)
+
+**Note:** `intervals.js` and `interval-game.js` exist in the directory but are **not imported** — the game logic was moved inline into `index.html`. These legacy files are retained for reference only.
 
 The game logic is a state machine:
 
@@ -638,6 +642,13 @@ Then open `http://localhost:8000` in a browser.
 - localStorage is available in all modern browsers but may be disabled in private/incognito mode.
 - Tested target: Chrome 90+, Firefox 88+, Safari 14+, Edge 90+.
 
+## Skratch — Visual Effects Module (Planned)
+
+**Status: Not yet implemented.** The `feature/skratch-effects` branch exists for this work, but `shared/skratch/` has not been created yet.
+
+**Plan:** A shared visual effects module at `shared/skratch/` using raw Canvas 2D for particle effects. Intended to add visual feedback (sparks, bursts, trails) to game events like correct answers, streaks, and perfect scores across all games. No external dependencies — pure Canvas 2D API.
+
 ## TODO
 
 - Experiment with themes — try different color palettes, dark/light mode toggle, kid-friendly themes.
+- Implement Skratch visual effects module (`shared/skratch/`) — Canvas 2D particle system for game feedback.
