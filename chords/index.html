@@ -169,6 +169,31 @@
       color: var(--color-text-muted);
       font-style: italic;
     }
+
+    /* ── Skratch effects toggle + editor ── */
+    .skratch-toggle {
+      background: none;
+      border: 1px solid rgba(108, 92, 231, 0.3);
+      color: var(--color-primary);
+      padding: var(--space-xs) var(--space-sm);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      font-size: var(--font-size-xs);
+      font-family: monospace;
+      transition: background 0.2s, border-color 0.2s;
+    }
+    .skratch-toggle:hover {
+      background: rgba(108, 92, 231, 0.1);
+      border-color: var(--color-primary);
+    }
+    .skratch-toggle--active {
+      background: rgba(108, 92, 231, 0.15);
+      border-color: var(--color-primary);
+    }
+    .skratch-editor-wrap {
+      max-width: 500px;
+      margin: 0 auto var(--space-lg);
+    }
   </style>
 </head>
 <body>
@@ -179,10 +204,13 @@
     <nav class="mtt-header__nav">
       <a href="../index.html" class="mtt-header__link">Home</a>
       <a href="#" class="mtt-header__link mtt-header__link--active">Chords</a>
+      <button id="btn-skratch" class="skratch-toggle" aria-label="Toggle visual effects editor">&lt;/&gt; Skratch</button>
     </nav>
   </header>
 
   <main class="container">
+    <div id="skratch-editor-wrap" class="skratch-editor-wrap" hidden></div>
+
     <!-- ===== Setup Screen ===== -->
     <section id="screen-setup">
       <div class="chords-setup">
@@ -338,6 +366,7 @@
       recordAttempt, recordSession, selectWeighted,
       getSessionFeedback, isAIAvailable
     } from '../shared/ai.js';
+    import { createSkratch } from '../shared/skratch/skratch.js';
 
     /* ── Constants ── */
     const GAME_ID = 'chords';
@@ -385,6 +414,9 @@
       perSkill: {},       // { [chordType]: { attempts, hits } } for session summary
     };
 
+    /* ── Skratch visual effects ── */
+    let skratch = null;
+
     /* ── DOM helpers ── */
     const $ = (id) => document.getElementById(id);
 
@@ -416,6 +448,10 @@
           playNote(noteInfo.fullName, CHORD_DURATION);
         }
       });
+      // Trigger Skratch chord-type effect
+      if (skratch && state.currentChord) {
+        skratch.trigger(state.currentChord.type.toLowerCase());
+      }
     }
 
     /* ── Generate question ── */
@@ -506,6 +542,8 @@
             b.classList.add('btn--correct');
           }
         });
+
+        if (skratch) skratch.trigger('correct');
       } else {
         state.streak = 0;
 
@@ -523,6 +561,8 @@
             b.classList.add('btn--correct');
           }
         });
+
+        if (skratch) skratch.trigger('wrong');
       }
 
       // Show practice info after answering
@@ -762,6 +802,21 @@
       $('btn-save-score').addEventListener('click', handleSaveScore);
 
       document.addEventListener('keydown', handleKeyboard);
+
+      // Skratch editor toggle
+      $('btn-skratch').addEventListener('click', () => {
+        const wrap = $('skratch-editor-wrap');
+        const btn = $('btn-skratch');
+        if (wrap.hidden) {
+          wrap.hidden = false;
+          btn.classList.add('skratch-toggle--active');
+          if (skratch) skratch.showEditor(wrap);
+        } else {
+          wrap.hidden = true;
+          btn.classList.remove('skratch-toggle--active');
+          if (skratch) skratch.hideEditor();
+        }
+      });
     }
 
     /* ── Init ── */
@@ -769,6 +824,25 @@
       populateSelectors();
       refreshLeaderboard('leaderboard-setup');
       bindEvents();
+
+      // Initialize Skratch visual effects
+      skratch = createSkratch(
+        document.querySelector('main.container'),
+        [
+          { key: 'major', label: 'Major chord played', color: '#3B82F6', icon: '\u{1F3B5}' },
+          { key: 'minor', label: 'Minor chord played', color: '#8B5CF6', icon: '\u{1F3B5}' },
+          { key: 'diminished', label: 'Diminished chord played', color: '#F97316', icon: '\u{1F3B5}' },
+          { key: 'correct', label: 'Correct answer', color: '#22C55E', icon: '\u2705' },
+          { key: 'wrong', label: 'Wrong answer', color: '#EF4444', icon: '\u274C' },
+        ],
+        {
+          major: 'bright_sparkles',
+          minor: 'blue_rain',
+          diminished: 'cool_mist',
+          correct: 'confetti',
+          wrong: 'fire_burst',
+        }
+      );
     }
 
     init();
