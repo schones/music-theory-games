@@ -3,6 +3,8 @@
 import { registerBlocks, getToolboxXml } from './blocks.js';
 import { registerGenerators } from './generators.js';
 import { Sandbox } from './sandbox.js';
+import { AudioBridge } from './audio-bridge.js';
+import { Piano } from './piano.js';
 
 const STORAGE_KEY = 'skratch-studio-workspace';
 
@@ -95,11 +97,198 @@ const STARTERS = {
       },
       { type: 'restore_position' }
     ))
+  },
+
+  sound_circles: {
+    name: 'Sound Circles',
+    json: starter(chain(
+      { type: 'set_background', x: 20, y: 20, fields: { COLOR: '#1e1e2e' } },
+      { type: 'save_position' },
+      { type: 'move_to_center' },
+      { type: 'no_fill' },
+      { type: 'set_stroke', fields: { COLOR: '#a29bfe' } },
+      { type: 'set_stroke_weight', fields: { WEIGHT: 2 } },
+      {
+        type: 'simple_if',
+        inputs: {
+          CONDITION: { block: { type: 'note_is_playing' } },
+          DO: { block: chain(
+            { type: 'draw_circle', fields: { X: 0, Y: 0, SIZE: 150 } },
+            { type: 'set_stroke', fields: { COLOR: '#00cec9' } },
+            { type: 'draw_circle', fields: { X: 0, Y: 0, SIZE: 100 } },
+            { type: 'set_stroke', fields: { COLOR: '#ff6600' } },
+            { type: 'draw_circle', fields: { X: 0, Y: 0, SIZE: 50 } }
+          ) }
+        }
+      },
+      { type: 'restore_position' }
+    ))
+  },
+
+  note_garden: {
+    name: 'Note Garden',
+    json: {
+      blocks: {
+        languageVersion: 0,
+        blocks: [
+          {
+            type: 'when_start_clicked', x: 20, y: 20,
+            inputs: {
+              DO: { block: { type: 'draw_trail' } }
+            }
+          },
+          {
+            type: 'when_specific_note', x: 20, y: 140,
+            fields: { NOTE: 'C' },
+            inputs: {
+              DO: { block: chain(
+                { type: 'save_position' },
+                { type: 'move_to', fields: { X: 80, Y: 100 } },
+                { type: 'set_fill', fields: { COLOR: '#ff6b6b' } },
+                { type: 'draw_circle', fields: { X: 0, Y: 0, SIZE: 50 } },
+                { type: 'restore_position' }
+              ) }
+            }
+          },
+          {
+            type: 'when_specific_note', x: 20, y: 340,
+            fields: { NOTE: 'D' },
+            inputs: {
+              DO: { block: chain(
+                { type: 'save_position' },
+                { type: 'move_to', fields: { X: 280, Y: 70 } },
+                { type: 'set_fill', fields: { COLOR: '#ffa502' } },
+                { type: 'draw_star', fields: { X: 0, Y: 0, SIZE: 25 } },
+                { type: 'restore_position' }
+              ) }
+            }
+          },
+          {
+            type: 'when_specific_note', x: 20, y: 540,
+            fields: { NOTE: 'E' },
+            inputs: {
+              DO: { block: chain(
+                { type: 'save_position' },
+                { type: 'move_to', fields: { X: 180, Y: 200 } },
+                { type: 'set_fill', fields: { COLOR: '#ffd93d' } },
+                { type: 'draw_circle', fields: { X: 0, Y: 0, SIZE: 40 } },
+                { type: 'restore_position' }
+              ) }
+            }
+          },
+          {
+            type: 'when_specific_note', x: 20, y: 740,
+            fields: { NOTE: 'F' },
+            inputs: {
+              DO: { block: chain(
+                { type: 'save_position' },
+                { type: 'move_to', fields: { X: 60, Y: 280 } },
+                { type: 'set_fill', fields: { COLOR: '#2ed573' } },
+                { type: 'draw_star', fields: { X: 0, Y: 0, SIZE: 30 } },
+                { type: 'restore_position' }
+              ) }
+            }
+          },
+          {
+            type: 'when_specific_note', x: 380, y: 20,
+            fields: { NOTE: 'G' },
+            inputs: {
+              DO: { block: chain(
+                { type: 'save_position' },
+                { type: 'move_to', fields: { X: 320, Y: 220 } },
+                { type: 'set_fill', fields: { COLOR: '#00cec9' } },
+                { type: 'draw_circle', fields: { X: 0, Y: 0, SIZE: 45 } },
+                { type: 'restore_position' }
+              ) }
+            }
+          },
+          {
+            type: 'when_specific_note', x: 380, y: 220,
+            fields: { NOTE: 'A' },
+            inputs: {
+              DO: { block: chain(
+                { type: 'save_position' },
+                { type: 'move_to', fields: { X: 140, Y: 340 } },
+                { type: 'set_fill', fields: { COLOR: '#a29bfe' } },
+                { type: 'draw_star', fields: { X: 0, Y: 0, SIZE: 25 } },
+                { type: 'restore_position' }
+              ) }
+            }
+          },
+          {
+            type: 'when_specific_note', x: 380, y: 420,
+            fields: { NOTE: 'B' },
+            inputs: {
+              DO: { block: chain(
+                { type: 'save_position' },
+                { type: 'move_to', fields: { X: 300, Y: 340 } },
+                { type: 'set_fill', fields: { COLOR: '#fd79a8' } },
+                { type: 'draw_circle', fields: { X: 0, Y: 0, SIZE: 35 } },
+                { type: 'restore_position' }
+              ) }
+            }
+          }
+        ]
+      }
+    }
+  },
+
+  bounce: {
+    name: 'Bounce',
+    json: {
+      blocks: {
+        languageVersion: 0,
+        blocks: [
+          {
+            type: 'when_start_clicked', x: 20, y: 20,
+            inputs: {
+              DO: { block: chain(
+                { type: 'draw_trail' },
+                { type: 'save_position' },
+                { type: 'move_to_center' },
+                { type: 'set_fill', fields: { COLOR: '#a29bfe' } },
+                {
+                  type: 'simple_if',
+                  inputs: {
+                    CONDITION: { block: { type: 'note_is_playing' } },
+                    DO: { block: { type: 'set_fill', fields: { COLOR: '#ff6b6b' } } }
+                  }
+                },
+                { type: 'set_stroke', fields: { COLOR: '#ffffff' } },
+                { type: 'set_stroke_weight', fields: { WEIGHT: 2 } },
+                { type: 'draw_circle', fields: { X: 0, Y: 0, SIZE: 60 } },
+                { type: 'restore_position' }
+              ) }
+            }
+          },
+          {
+            type: 'when_note_played', x: 20, y: 420,
+            inputs: {
+              DO: { block: chain(
+                { type: 'save_position' },
+                { type: 'move_to_center' },
+                { type: 'no_fill' },
+                { type: 'set_stroke', fields: { COLOR: '#ff6b6b' } },
+                { type: 'set_stroke_weight', fields: { WEIGHT: 3 } },
+                { type: 'draw_circle', fields: { X: 0, Y: 0, SIZE: 120 } },
+                { type: 'set_stroke', fields: { COLOR: '#ffd93d' } },
+                { type: 'draw_circle', fields: { X: 0, Y: 0, SIZE: 180 } },
+                { type: 'set_stroke', fields: { COLOR: '#00cec9' } },
+                { type: 'draw_circle', fields: { X: 0, Y: 0, SIZE: 240 } },
+                { type: 'restore_position' }
+              ) }
+            }
+          }
+        ]
+      }
+    }
   }
 };
 
 let workspace = null;
 let sandbox = null;
+let audioBridge = null;
+let piano = null;
 
 export function init() {
   // Register custom blocks and generators
@@ -186,6 +375,50 @@ export function init() {
     }
   });
 
+  // --- Audio Integration ---
+  audioBridge = new AudioBridge();
+
+  // Connect audio state to sandbox so generated code can read pitch/volume
+  sandbox.setAudioState(audioBridge.state);
+
+  // When AudioBridge fires note callbacks, forward to sandbox's registered callbacks
+  audioBridge.onNotePlayed(() => sandbox.fireNoteCallbacks());
+
+  // Piano keyboard — clicking a key plays a note through the bridge
+  const pianoContainer = document.getElementById('pianoContainer');
+  piano = new Piano(pianoContainer, (noteName) => {
+    audioBridge.playNote(noteName);
+  });
+
+  // Mic toggle
+  const btnMic = document.getElementById('btnMic');
+  btnMic.addEventListener('click', async () => {
+    if (audioBridge._micActive) {
+      audioBridge.stopMic();
+      btnMic.textContent = '\u{1F3A4} Mic Off';
+      btnMic.classList.remove('active');
+    } else {
+      try {
+        await audioBridge.startMic();
+        btnMic.textContent = '\u{1F3A4} Mic On';
+        btnMic.classList.add('active');
+        // Highlight piano keys from mic detection
+        startPianoHighlight();
+      } catch (e) {
+        alert('Could not access microphone. Please allow mic access and try again.');
+      }
+    }
+  });
+
+  // BPM control
+  const bpmSlider = document.getElementById('bpmSlider');
+  const bpmValue = document.getElementById('bpmValue');
+  bpmSlider.addEventListener('input', () => {
+    const bpm = parseInt(bpmSlider.value, 10);
+    bpmValue.textContent = bpm;
+    sandbox.setBpm(bpm);
+  });
+
   // Update code preview on workspace change + auto-save
   workspace.addChangeListener((e) => {
     if (e.isUiEvent) return;
@@ -203,11 +436,17 @@ export function init() {
 
   // Cleanup on unload
   window.addEventListener('beforeunload', () => {
+    if (audioBridge) audioBridge.destroy();
+    if (piano) piano.destroy();
     if (sandbox) sandbox.destroy();
   });
 }
 
 function handlePlay() {
+  // Clear previous note callbacks so re-play doesn't stack them
+  audioBridge.clearNoteCallbacks();
+  audioBridge.onNotePlayed(() => sandbox.fireNoteCallbacks());
+
   const code = generateCode();
   sandbox.run(code);
   sandbox.startLoop();
@@ -283,6 +522,24 @@ function loadWorkspace() {
     localStorage.removeItem(STORAGE_KEY);
     return false;
   }
+}
+
+let _pianoHighlightId = null;
+
+function startPianoHighlight() {
+  // Already running
+  if (_pianoHighlightId) return;
+
+  const tick = () => {
+    if (!audioBridge._micActive) {
+      _pianoHighlightId = null;
+      piano.highlightNote(null);
+      return;
+    }
+    piano.highlightNote(audioBridge.state.currentNoteName);
+    _pianoHighlightId = requestAnimationFrame(tick);
+  };
+  _pianoHighlightId = requestAnimationFrame(tick);
 }
 
 function drawCanvasGrid(canvas) {

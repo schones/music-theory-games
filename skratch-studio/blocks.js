@@ -303,6 +303,109 @@ export function registerBlocks() {
     }
   };
 
+  // ===================== EVENTS (gold, hue 45) =====================
+
+  Blockly.Blocks['when_start_clicked'] = {
+    init() {
+      this.appendDummyInput()
+        .appendField('when ▶ start clicked');
+      this.appendStatementInput('DO');
+      this.setColour(45);
+      this.setTooltip('Run this code once when you press Play');
+      this.setDeletable(true);
+    }
+  };
+
+  Blockly.Blocks['when_note_played'] = {
+    init() {
+      this.appendDummyInput()
+        .appendField('when any note is played');
+      this.appendStatementInput('DO');
+      this.setColour(45);
+      this.setTooltip('Run this code whenever a note is played on the piano or detected by the mic');
+    }
+  };
+
+  Blockly.Blocks['when_specific_note'] = {
+    init() {
+      this.appendDummyInput()
+        .appendField('when note')
+        .appendField(new Blockly.FieldDropdown([
+          ['C', 'C'], ['D', 'D'], ['E', 'E'], ['F', 'F'],
+          ['G', 'G'], ['A', 'A'], ['B', 'B']
+        ]), 'NOTE')
+        .appendField('is played');
+      this.appendStatementInput('DO');
+      this.setColour(45);
+      this.setTooltip('Run this code when a specific note is played');
+    }
+  };
+
+  Blockly.Blocks['when_pitch_threshold'] = {
+    init() {
+      this.appendDummyInput()
+        .appendField('when pitch is')
+        .appendField(new Blockly.FieldDropdown([
+          ['above', 'above'], ['below', 'below']
+        ]), 'DIR')
+        .appendField(new Blockly.FieldNumber(440, 20, 2000), 'HZ')
+        .appendField('Hz');
+      this.appendStatementInput('DO');
+      this.setColour(45);
+      this.setTooltip('Run this code when the pitch crosses a frequency threshold');
+    }
+  };
+
+  Blockly.Blocks['every_n_beats'] = {
+    init() {
+      this.appendDummyInput()
+        .appendField('every')
+        .appendField(new Blockly.FieldNumber(1, 0.25, 16), 'BEATS')
+        .appendField('beats');
+      this.appendStatementInput('DO');
+      this.setColour(45);
+      this.setTooltip('Run this code on a repeating beat timer (uses BPM setting)');
+    }
+  };
+
+  // ===================== SOUND DATA (green, hue 120) =====================
+
+  Blockly.Blocks['current_pitch'] = {
+    init() {
+      this.appendDummyInput().appendField('current pitch');
+      this.setOutput(true, 'Number');
+      this.setColour(120);
+      this.setTooltip('The current pitch in Hz (0 if silent)');
+    }
+  };
+
+  Blockly.Blocks['current_note_name'] = {
+    init() {
+      this.appendDummyInput().appendField('current note name');
+      this.setOutput(true, 'String');
+      this.setColour(120);
+      this.setTooltip('The name of the current note (e.g. "C4")');
+    }
+  };
+
+  Blockly.Blocks['volume_level'] = {
+    init() {
+      this.appendDummyInput().appendField('volume level');
+      this.setOutput(true, 'Number');
+      this.setColour(120);
+      this.setTooltip('The current volume level (0–100)');
+    }
+  };
+
+  Blockly.Blocks['note_is_playing'] = {
+    init() {
+      this.appendDummyInput().appendField('note is playing');
+      this.setOutput(true, 'Boolean');
+      this.setColour(120);
+      this.setTooltip('True if a note is currently being played or detected');
+    }
+  };
+
   // ===================== CONTROL (orange, hue 30) =====================
 
   Blockly.Blocks['repeat_times'] = {
@@ -374,6 +477,19 @@ export function getToolboxXml() {
     <sep gap="20"></sep>
     <block type="save_position"></block>
     <block type="restore_position"></block>
+  </category>
+  <category name="🎵 Events" colour="45">
+    <block type="when_start_clicked"></block>
+    <block type="when_note_played"></block>
+    <block type="when_specific_note"></block>
+    <block type="when_pitch_threshold"></block>
+    <block type="every_n_beats"></block>
+  </category>
+  <category name="🔊 Sound Data" colour="120">
+    <block type="current_pitch"></block>
+    <block type="current_note_name"></block>
+    <block type="volume_level"></block>
+    <block type="note_is_playing"></block>
   </category>
   <category name="🔢 Math" colour="120">
     <block type="map_value"></block>

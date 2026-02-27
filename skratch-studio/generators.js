@@ -132,6 +132,56 @@ export function registerGenerators() {
     return ['frameCount', Order.ORDER_ATOMIC];
   };
 
+  // ===================== EVENTS =====================
+
+  js.forBlock['when_start_clicked'] = function(block) {
+    const body = js.statementToCode(block, 'DO');
+    return `// on start\n${body}`;
+  };
+
+  js.forBlock['when_note_played'] = function(block) {
+    const body = js.statementToCode(block, 'DO');
+    return `onNotePlayed(function() {\n${body}});\n`;
+  };
+
+  js.forBlock['when_specific_note'] = function(block) {
+    const note = block.getFieldValue('NOTE');
+    const body = js.statementToCode(block, 'DO');
+    return `onNotePlayed(function() {\n  if (currentNoteName.startsWith('${note}')) {\n${body}  }\n});\n`;
+  };
+
+  js.forBlock['when_pitch_threshold'] = function(block) {
+    const dir = block.getFieldValue('DIR');
+    const hz = block.getFieldValue('HZ');
+    const op = dir === 'above' ? '>' : '<';
+    const body = js.statementToCode(block, 'DO');
+    return `onNotePlayed(function() {\n  if (currentPitch ${op} ${hz}) {\n${body}  }\n});\n`;
+  };
+
+  js.forBlock['every_n_beats'] = function(block) {
+    const beats = block.getFieldValue('BEATS');
+    const body = js.statementToCode(block, 'DO');
+    return `everyNBeats(${beats}, function() {\n${body}});\n`;
+  };
+
+  // ===================== SOUND DATA =====================
+
+  js.forBlock['current_pitch'] = function() {
+    return ['currentPitch', Order.ORDER_ATOMIC];
+  };
+
+  js.forBlock['current_note_name'] = function() {
+    return ['currentNoteName', Order.ORDER_ATOMIC];
+  };
+
+  js.forBlock['volume_level'] = function() {
+    return ['currentVolume', Order.ORDER_ATOMIC];
+  };
+
+  js.forBlock['note_is_playing'] = function() {
+    return ['noteIsPlaying', Order.ORDER_ATOMIC];
+  };
+
   // ===================== CONTROL =====================
 
   js.forBlock['repeat_times'] = function(block) {

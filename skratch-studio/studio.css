@@ -213,6 +213,70 @@
   word-break: break-word;
 }
 
+/* --- Audio Controls --- */
+.audio-controls {
+  background: #181825;
+  border-radius: var(--radius-md);
+  border: 2px solid #3a3a50;
+  padding: var(--space-sm);
+}
+
+.audio-controls__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-sm);
+}
+
+.btn--mic {
+  background: #2a2a3e;
+  color: #cdd6f4;
+  border: 1px solid #3a3a50;
+  white-space: nowrap;
+  min-width: 90px;
+}
+.btn--mic:hover {
+  border-color: #cdd6f4;
+}
+.btn--mic.active {
+  background: var(--color-error);
+  color: #fff;
+  border-color: var(--color-error);
+}
+
+.bpm-control {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex: 1;
+}
+
+.bpm-control__label {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-bold);
+}
+
+.bpm-control__slider {
+  flex: 1;
+  accent-color: var(--color-accent);
+  height: 4px;
+  cursor: pointer;
+}
+
+.bpm-control__value {
+  font-size: var(--font-size-sm);
+  color: #cdd6f4;
+  font-family: var(--font-family-mono);
+  min-width: 28px;
+  text-align: right;
+}
+
+.piano-container {
+  display: flex;
+  justify-content: center;
+}
+
 /* --- Responsive --- */
 @media (max-width: 900px) {
   .studio-layout {

@@ -13,6 +13,8 @@
   <script src="https://unpkg.com/blockly/msg/en.js"></script>
   <!-- FieldColour was removed from Blockly core in v12; load as plugin -->
   <script src="https://unpkg.com/@blockly/field-colour"></script>
+  <!-- Tone.js for audio synthesis -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
 </head>
 <body style="background: #11111b; color: #cdd6f4; overflow: hidden;">
   <header class="mtt-header" style="background: #181825; border-bottom: 1px solid #3a3a50;">
@@ -48,8 +50,23 @@
             <option value="circles">Circles</option>
             <option value="rainbow">Rainbow Grid</option>
             <option value="spiral">Spiral</option>
+            <option value="sound_circles">Sound Circles</option>
+            <option value="note_garden">Note Garden</option>
+            <option value="bounce">Bounce</option>
             <option value="blank">Blank Canvas</option>
           </select>
+        </div>
+        <!-- Audio controls: piano + mic + BPM -->
+        <div class="audio-controls">
+          <div class="audio-controls__row">
+            <button id="btnMic" class="btn btn--mic" aria-label="Toggle microphone">&#127908; Mic Off</button>
+            <div class="bpm-control">
+              <label for="bpmSlider" class="bpm-control__label">BPM</label>
+              <input id="bpmSlider" type="range" min="40" max="200" value="120" class="bpm-control__slider" aria-label="Beats per minute">
+              <span id="bpmValue" class="bpm-control__value">120</span>
+            </div>
+          </div>
+          <div id="pianoContainer" class="piano-container"></div>
         </div>
       </div>
 
