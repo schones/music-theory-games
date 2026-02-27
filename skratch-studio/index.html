@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Skratch Studio — Music Theory Games</title>
+  <link rel="stylesheet" href="../shared/styles.css">
+  <link rel="stylesheet" href="studio.css">
+  <!-- Blockly -->
+  <script src="https://unpkg.com/blockly/blockly_compressed.js"></script>
+  <script src="https://unpkg.com/blockly/blocks_compressed.js"></script>
+  <script src="https://unpkg.com/blockly/javascript_compressed.js"></script>
+  <script src="https://unpkg.com/blockly/msg/en.js"></script>
+  <!-- FieldColour was removed from Blockly core in v12; load as plugin -->
+  <script src="https://unpkg.com/@blockly/field-colour"></script>
+</head>
+<body style="background: #11111b; color: #cdd6f4; overflow: hidden;">
+  <header class="mtt-header" style="background: #181825; border-bottom: 1px solid #3a3a50;">
+    <a href="../index.html" class="mtt-header__logo" style="text-decoration: none;">
+      <span aria-hidden="true">&#9835;</span> Music Theory Games
+    </a>
+    <nav class="mtt-header__nav">
+      <a href="../index.html" class="mtt-header__link">Home</a>
+      <a href="#" class="mtt-header__link mtt-header__link--active">Skratch Studio</a>
+    </nav>
+  </header>
+
+  <main class="studio-layout">
+    <!-- Left: Blockly Workspace -->
+    <div class="studio-left">
+      <div class="blockly-container">
+        <div id="blocklyDiv"></div>
+      </div>
+    </div>
+
+    <!-- Right: Canvas + Controls + Code Preview -->
+    <div class="studio-right">
+      <div class="canvas-panel">
+        <div class="canvas-wrapper canvas-grid-bg">
+          <canvas id="skratchCanvas" width="400" height="400"></canvas>
+        </div>
+        <div id="errorBar" class="error-bar" hidden></div>
+        <div class="studio-controls">
+          <button id="btnPlay" class="btn btn--play" aria-label="Play">&#9654; Play</button>
+          <button id="btnStop" class="btn btn--stop" disabled aria-label="Stop">&#9632; Stop</button>
+          <select id="starterSelect" class="starter-select" aria-label="Load a starter program">
+            <option value="">Load a starter...</option>
+            <option value="circles">Circles</option>
+            <option value="rainbow">Rainbow Grid</option>
+            <option value="spiral">Spiral</option>
+            <option value="blank">Blank Canvas</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="code-preview">
+        <div class="code-preview__header" id="codePreviewHeader" role="button" tabindex="0" aria-expanded="true" aria-controls="codePreviewBody">
+          <div>
+            <span class="code-preview__title">See the Code</span>
+            <span class="code-preview__subtitle">This is real JavaScript — you'll write code like this in the p5.js Lab!</span>
+          </div>
+          <div class="code-preview__actions">
+            <button id="btnCopy" class="btn--copy" aria-label="Copy code">Copy</button>
+            <span id="codePreviewToggle" class="code-preview__toggle open" aria-hidden="true">&#9660;</span>
+          </div>
+        </div>
+        <div class="code-preview__body" id="codePreviewBody">
+          <pre class="code-preview__code" id="codePreviewContent">// Drag blocks to start coding!</pre>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script type="module">
+    import { init } from './studio.js';
+    init();
+  </script>
+</body>
+</html>
