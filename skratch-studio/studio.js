@@ -2,6 +2,9 @@
 
 import { registerBlocks, getToolboxXml } from './blocks.js';
 import { registerGenerators } from './generators.js';
+import { registerMusicBlocks, getMusicToolboxXml } from './music-blocks.js';
+import { registerMusicGenerators } from './music-generators.js';
+import { MusicEngine } from './music-engine.js';
 import { Sandbox } from './sandbox.js';
 import { AudioBridge } from './audio-bridge.js';
 import { Piano } from './piano.js';
@@ -22,6 +25,10 @@ function chain(...blocks) {
 
 function starter(topBlock) {
   return { blocks: { languageVersion: 0, blocks: topBlock ? [topBlock] : [] } };
+}
+
+function multiStarter(...topBlocks) {
+  return { blocks: { languageVersion: 0, blocks: topBlocks } };
 }
 
 // --- Starter Programs (Blockly JSON serialization) ---
@@ -282,22 +289,157 @@ const STARTERS = {
         ]
       }
     }
+  },
+
+  // --- Music Starters (Part C) ---
+
+  first_beat: {
+    name: 'First Beat',
+    json: starter({
+      type: 'music_start', x: 20, y: 20,
+      inputs: {
+        DO: { block: chain(
+          { type: 'set_tempo', fields: { BPM: 100 } },
+          { type: 'play_kick', fields: { TIME: '0:0:0' } },
+          { type: 'play_hihat', fields: { TIME: '0:0:2' } },
+          { type: 'play_snare', fields: { TIME: '0:1:0' } },
+          { type: 'play_hihat', fields: { TIME: '0:1:2' } },
+          { type: 'play_kick', fields: { TIME: '0:2:0' } },
+          { type: 'play_hihat', fields: { TIME: '0:2:2' } },
+          { type: 'play_snare', fields: { TIME: '0:3:0' } },
+          { type: 'play_hihat', fields: { TIME: '0:3:2' } }
+        ) }
+      }
+    })
+  },
+
+  bass_groove: {
+    name: 'Bass Groove',
+    json: starter({
+      type: 'music_start', x: 20, y: 20,
+      inputs: {
+        DO: { block: chain(
+          { type: 'set_tempo', fields: { BPM: 110 } },
+          { type: 'drum_pattern', fields: { PATTERN: 'rock' } },
+          { type: 'play_bass_note', fields: { NOTE: 'C2', DURATION: '4n', TIME: '0:0:0' } },
+          { type: 'play_bass_note', fields: { NOTE: 'C2', DURATION: '8n', TIME: '0:1:0' } },
+          { type: 'play_bass_note', fields: { NOTE: 'E2', DURATION: '8n', TIME: '0:1:2' } },
+          { type: 'play_bass_note', fields: { NOTE: 'G2', DURATION: '4n', TIME: '0:2:0' } },
+          { type: 'play_bass_note', fields: { NOTE: 'F2', DURATION: '4n', TIME: '0:3:0' } }
+        ) }
+      }
+    })
+  },
+
+  my_first_song: {
+    name: 'My First Song',
+    json: starter({
+      type: 'music_start', x: 20, y: 20,
+      inputs: {
+        DO: { block: chain(
+          { type: 'set_tempo', fields: { BPM: 120 } },
+          {
+            type: 'section', fields: { NAME: 'verse', MEASURES: '2' },
+            inputs: { DO: { block: chain(
+              { type: 'drum_pattern', fields: { PATTERN: 'rock' } },
+              { type: 'play_bass_note', fields: { NOTE: 'C2', DURATION: '4n', TIME: '0:0:0' } },
+              { type: 'play_bass_note', fields: { NOTE: 'G2', DURATION: '4n', TIME: '0:2:0' } },
+              { type: 'play_melody_note', fields: { NOTE: 'E4', DURATION: '4n', TIME: '0:0:0' } },
+              { type: 'play_melody_note', fields: { NOTE: 'D4', DURATION: '4n', TIME: '0:1:0' } },
+              { type: 'play_melody_note', fields: { NOTE: 'C4', DURATION: '2n', TIME: '0:2:0' } }
+            ) } }
+          },
+          {
+            type: 'section', fields: { NAME: 'chorus', MEASURES: '2' },
+            inputs: { DO: { block: chain(
+              { type: 'drum_pattern', fields: { PATTERN: 'four' } },
+              { type: 'play_chord', fields: { ROOT: 'C', QUALITY: 'major', DURATION: '2n', TIME: '0:0:0' } },
+              { type: 'play_chord', fields: { ROOT: 'G', QUALITY: 'major', DURATION: '2n', TIME: '0:2:0' } },
+              { type: 'play_melody_note', fields: { NOTE: 'G4', DURATION: '4n', TIME: '0:0:0' } },
+              { type: 'play_melody_note', fields: { NOTE: 'A4', DURATION: '4n', TIME: '0:1:0' } },
+              { type: 'play_melody_note', fields: { NOTE: 'G4', DURATION: '2n', TIME: '0:2:0' } }
+            ) } }
+          }
+        ) }
+      }
+    })
+  },
+
+  beat_painter: {
+    name: 'Beat Painter',
+    json: multiStarter(
+      {
+        type: 'music_start', x: 20, y: 20,
+        inputs: {
+          DO: { block: chain(
+            { type: 'set_tempo', fields: { BPM: 110 } },
+            { type: 'drum_pattern', fields: { PATTERN: 'hiphop' } },
+            { type: 'play_bass_note', fields: { NOTE: 'C2', DURATION: '4n', TIME: '0:0:0' } },
+            { type: 'play_bass_note', fields: { NOTE: 'G2', DURATION: '4n', TIME: '0:2:0' } }
+          ) }
+        }
+      },
+      {
+        type: 'when_start_clicked', x: 20, y: 340,
+        inputs: {
+          DO: { block: chain(
+            { type: 'draw_trail' },
+            { type: 'save_position' },
+            { type: 'move_to_center' },
+            { type: 'no_fill' },
+            { type: 'set_stroke', fields: { COLOR: '#a29bfe' } },
+            { type: 'set_stroke_weight', fields: { WEIGHT: 2 } },
+            { type: 'draw_circle', fields: { X: 0, Y: 0, SIZE: 80 } },
+            { type: 'restore_position' }
+          ) }
+        }
+      },
+      {
+        type: 'every_n_beats', x: 20, y: 620,
+        fields: { BEATS: 1 },
+        inputs: {
+          DO: { block: chain(
+            { type: 'save_position' },
+            { type: 'set_fill', fields: { COLOR: '#ff6b6b' } },
+            { type: 'draw_circle', fields: { X: 200, Y: 200, SIZE: 30 } },
+            { type: 'restore_position' }
+          ) }
+        }
+      },
+      {
+        type: 'every_n_beats', x: 380, y: 20,
+        fields: { BEATS: 2 },
+        inputs: {
+          DO: { block: chain(
+            { type: 'save_position' },
+            { type: 'set_fill', fields: { COLOR: '#00cec9' } },
+            { type: 'draw_star', fields: { X: 200, Y: 200, SIZE: 60 } },
+            { type: 'restore_position' }
+          ) }
+        }
+      }
+    )
   }
 };
 
 let workspace = null;
 let sandbox = null;
 let audioBridge = null;
+let musicEngine = null;
 let piano = null;
+let _beatIndicatorTimeout = null;
 
 export function init() {
-  // Register custom blocks and generators
+  // Register custom blocks and generators (visual + music)
   registerBlocks();
   registerGenerators();
+  registerMusicBlocks();
+  registerMusicGenerators();
 
-  // Inject toolbox XML into document
+  // Build combined toolbox XML (visual categories + music categories)
+  const combinedToolboxXml = buildCombinedToolbox();
   const toolboxContainer = document.createElement('div');
-  toolboxContainer.innerHTML = getToolboxXml();
+  toolboxContainer.innerHTML = combinedToolboxXml;
   document.body.appendChild(toolboxContainer);
 
   // Create Blockly workspace with dark theme
@@ -354,6 +496,9 @@ export function init() {
   // Draw initial grid background
   drawCanvasGrid(canvas);
 
+  // --- Music Engine ---
+  musicEngine = new MusicEngine();
+
   // --- Event Bindings ---
   document.getElementById('btnPlay').addEventListener('click', handlePlay);
   document.getElementById('btnStop').addEventListener('click', handleStop);
@@ -402,7 +547,6 @@ export function init() {
         await audioBridge.startMic();
         btnMic.textContent = '\u{1F3A4} Mic On';
         btnMic.classList.add('active');
-        // Highlight piano keys from mic detection
         startPianoHighlight();
       } catch (e) {
         alert('Could not access microphone. Please allow mic access and try again.');
@@ -410,14 +554,30 @@ export function init() {
     }
   });
 
-  // BPM control
+  // BPM control — drives both sandbox beat timers and Tone.Transport
   const bpmSlider = document.getElementById('bpmSlider');
   const bpmValue = document.getElementById('bpmValue');
   bpmSlider.addEventListener('input', () => {
     const bpm = parseInt(bpmSlider.value, 10);
     bpmValue.textContent = bpm;
     sandbox.setBpm(bpm);
+    if (musicEngine._started) {
+      musicEngine.setBpm(bpm);
+    }
   });
+
+  // Volume control
+  const volumeSlider = document.getElementById('volumeSlider');
+  if (volumeSlider) {
+    const volumeValue = document.getElementById('volumeValue');
+    volumeSlider.addEventListener('input', () => {
+      const vol = parseInt(volumeSlider.value, 10);
+      volumeValue.textContent = vol + '%';
+      // Map 0-100 → -40dB to 0dB (logarithmic feel)
+      const db = vol === 0 ? -Infinity : -40 + (vol / 100) * 40;
+      musicEngine.setVolume(db);
+    });
+  }
 
   // Update code preview on workspace change + auto-save
   workspace.addChangeListener((e) => {
@@ -436,32 +596,172 @@ export function init() {
 
   // Cleanup on unload
   window.addEventListener('beforeunload', () => {
+    if (musicEngine) musicEngine.destroy();
     if (audioBridge) audioBridge.destroy();
     if (piano) piano.destroy();
     if (sandbox) sandbox.destroy();
   });
 }
 
-function handlePlay() {
+function buildCombinedToolbox() {
+  // Get the existing visual toolbox XML and inject music categories before closing </xml>
+  const visualXml = getToolboxXml();
+  const musicXml = getMusicToolboxXml();
+
+  // Insert a separator and music categories before the closing </xml>
+  return visualXml.replace(
+    '</xml>',
+    `  <sep gap="32"></sep>\n${musicXml}\n</xml>`
+  );
+}
+
+async function handlePlay() {
+  // Ensure Tone.js is started (requires user gesture)
+  await musicEngine.ensureTone();
+
   // Clear previous note callbacks so re-play doesn't stack them
   audioBridge.clearNoteCallbacks();
   audioBridge.onNotePlayed(() => sandbox.fireNoteCallbacks());
 
   const code = generateCode();
+
+  // Check if code contains music blocks (Tone.js instrument calls)
+  const hasMusic = /\b(kick|snare|hihat|bass|melody|chords)\.(trigger|Tone\.Transport)/.test(code);
+
+  // Always run visual sandbox (it handles visual-only code fine)
   sandbox.run(code);
   sandbox.startLoop();
+
+  // If music code is present, schedule it via MusicEngine
+  if (hasMusic) {
+    musicEngine.stop(); // clear previous schedule
+    const bpm = parseInt(document.getElementById('bpmSlider').value, 10);
+    musicEngine.setBpm(bpm);
+
+    // Execute the music code in a context where instrument names resolve to engine methods
+    executeMusicCode(code);
+
+    // Start beat indicator
+    musicEngine.onBeat(() => flashBeatIndicator());
+    musicEngine.startBeatLoop();
+
+    musicEngine.start();
+  }
 
   document.getElementById('btnPlay').disabled = true;
   document.getElementById('btnStop').disabled = false;
 }
 
+function executeMusicCode(code) {
+  try {
+    // Build a function with instrument-named objects that forward to MusicEngine scheduling
+    const kickProxy = {
+      triggerAttackRelease(note, dur, time) {
+        musicEngine.scheduleKick(time, note);
+      }
+    };
+    const snareProxy = {
+      triggerAttackRelease(dur, time) {
+        musicEngine.scheduleSnare(time);
+      }
+    };
+    const hihatProxy = {
+      triggerAttackRelease(note, dur, time) {
+        musicEngine.scheduleHihat(time);
+      }
+    };
+    const bassProxy = {
+      triggerAttackRelease(note, dur, time) {
+        musicEngine.scheduleBass(note, dur, time);
+      }
+    };
+    const melodyProxy = {
+      triggerAttackRelease(note, dur, time) {
+        musicEngine.scheduleMelody(note, dur, time);
+      }
+    };
+    const chordsProxy = {
+      triggerAttackRelease(notes, dur, time) {
+        musicEngine.scheduleChord(notes, dur, time);
+      }
+    };
+
+    // Create the Tone proxy for tempo setting
+    const ToneProxy = {
+      Transport: {
+        bpm: {
+          set value(v) {
+            musicEngine.setBpm(v);
+            // Sync UI
+            const slider = document.getElementById('bpmSlider');
+            const display = document.getElementById('bpmValue');
+            if (slider) slider.value = v;
+            if (display) display.textContent = v;
+          },
+          get value() { return musicEngine.getBpm(); }
+        }
+      }
+    };
+
+    const fn = new Function(
+      'kick', 'snare', 'hihat', 'bass', 'melody', 'chords', 'Tone',
+      // Also pass through visual API params so mixed code doesn't error
+      'circle', 'rect', 'ellipse', 'triangle', 'line', 'star',
+      'fill', 'stroke', 'noFill', 'noStroke', 'strokeWeight', 'background',
+      'push', 'pop', 'translate', 'rotate', 'scale',
+      'map', 'lerp', 'random', 'constrain', 'dist',
+      'width', 'height', 'frameCount', 'mouseX', 'mouseY',
+      'Math', 'PI',
+      'currentPitch', 'currentNoteName', 'currentVolume', 'noteIsPlaying',
+      'onNotePlayed', 'everyNBeats',
+      code
+    );
+
+    // Provide no-op stubs for visual functions so they don't error during music scheduling
+    const noop = () => {};
+    fn(
+      kickProxy, snareProxy, hihatProxy, bassProxy, melodyProxy, chordsProxy, ToneProxy,
+      noop, noop, noop, noop, noop, noop,
+      noop, noop, noop, noop, noop, noop,
+      noop, noop, noop, noop, noop, noop,
+      noop, noop, noop, noop, noop,
+      400, 400, 0, 0, 0,
+      Math, Math.PI,
+      0, '--', 0, false,
+      noop, noop
+    );
+  } catch (e) {
+    // Music code errors shown in error bar
+    const errorEl = document.getElementById('errorBar');
+    if (errorEl) {
+      errorEl.textContent = 'Music Error: ' + e.message;
+      errorEl.hidden = false;
+    }
+  }
+}
+
 function handleStop() {
   sandbox.stop();
+  musicEngine.stop();
+
   document.getElementById('btnPlay').disabled = false;
   document.getElementById('btnStop').disabled = true;
 
+  // Clear beat indicator
+  const indicator = document.getElementById('beatIndicator');
+  if (indicator) indicator.classList.remove('flash');
+
   // Redraw grid background
   drawCanvasGrid(document.getElementById('skratchCanvas'));
+}
+
+function flashBeatIndicator() {
+  const indicator = document.getElementById('beatIndicator');
+  if (!indicator) return;
+  indicator.classList.remove('flash');
+  // Force reflow to restart animation
+  void indicator.offsetWidth;
+  indicator.classList.add('flash');
 }
 
 function generateCode() {
@@ -491,10 +791,10 @@ function handleCopy() {
 }
 
 function loadStarterProgram(key) {
-  const starter = STARTERS[key];
-  if (!starter) return;
+  const s = STARTERS[key];
+  if (!s) return;
   workspace.clear();
-  Blockly.serialization.workspaces.load(starter.json, workspace);
+  Blockly.serialization.workspaces.load(s.json, workspace);
   workspace.scrollCenter();
   updateCodePreview();
 }

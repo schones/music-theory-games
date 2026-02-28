@@ -45,14 +45,23 @@
         <div class="studio-controls">
           <button id="btnPlay" class="btn btn--play" aria-label="Play">&#9654; Play</button>
           <button id="btnStop" class="btn btn--stop" disabled aria-label="Stop">&#9632; Stop</button>
+          <div id="beatIndicator" class="beat-indicator" aria-label="Beat indicator"></div>
           <select id="starterSelect" class="starter-select" aria-label="Load a starter program">
             <option value="">Load a starter...</option>
-            <option value="circles">Circles</option>
-            <option value="rainbow">Rainbow Grid</option>
-            <option value="spiral">Spiral</option>
-            <option value="sound_circles">Sound Circles</option>
-            <option value="note_garden">Note Garden</option>
-            <option value="bounce">Bounce</option>
+            <optgroup label="Visual">
+              <option value="circles">Circles</option>
+              <option value="rainbow">Rainbow Grid</option>
+              <option value="spiral">Spiral</option>
+              <option value="sound_circles">Sound Circles</option>
+              <option value="note_garden">Note Garden</option>
+              <option value="bounce">Bounce</option>
+            </optgroup>
+            <optgroup label="Music">
+              <option value="first_beat">First Beat</option>
+              <option value="bass_groove">Bass Groove</option>
+              <option value="my_first_song">My First Song</option>
+              <option value="beat_painter">Beat Painter</option>
+            </optgroup>
             <option value="blank">Blank Canvas</option>
           </select>
         </div>
@@ -62,8 +71,13 @@
             <button id="btnMic" class="btn btn--mic" aria-label="Toggle microphone">&#127908; Mic Off</button>
             <div class="bpm-control">
               <label for="bpmSlider" class="bpm-control__label">BPM</label>
-              <input id="bpmSlider" type="range" min="40" max="200" value="120" class="bpm-control__slider" aria-label="Beats per minute">
+              <input id="bpmSlider" type="range" min="60" max="180" value="120" class="bpm-control__slider" aria-label="Beats per minute">
               <span id="bpmValue" class="bpm-control__value">120</span>
+            </div>
+            <div class="volume-control">
+              <label for="volumeSlider" class="bpm-control__label">VOL</label>
+              <input id="volumeSlider" type="range" min="0" max="100" value="75" class="bpm-control__slider" aria-label="Volume">
+              <span id="volumeValue" class="bpm-control__value">75%</span>
             </div>
           </div>
           <div id="pianoContainer" class="piano-container"></div>
@@ -74,7 +88,7 @@
         <div class="code-preview__header" id="codePreviewHeader" role="button" tabindex="0" aria-expanded="true" aria-controls="codePreviewBody">
           <div>
             <span class="code-preview__title">See the Code</span>
-            <span class="code-preview__subtitle">This is real JavaScript — you'll write code like this in the p5.js Lab!</span>
+            <span class="code-preview__subtitle">Real JavaScript — visuals use Canvas API, music uses Tone.js!</span>
           </div>
           <div class="code-preview__actions">
             <button id="btnCopy" class="btn--copy" aria-label="Copy code">Copy</button>

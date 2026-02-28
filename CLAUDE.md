@@ -37,8 +37,21 @@ music-theory-games/
 │   ├── detection.js       # Onset detection (transient/attack with hard lockout)
 │   ├── calibration.js     # Strum direction calibration (kept for future use, not actively imported)
 │   └── DIRECTION_DETECTION_README.md  # Technical reference for disabled direction detection
-└── detector/              # Strumming pattern detector tool
-    └── index.html         # Tool page (inline CSS/JS)
+├── detector/              # Strumming pattern detector tool
+│   └── index.html         # Tool page (inline CSS/JS)
+└── skratch-studio/        # Skratch Studio — visual coding + music creation
+    ├── index.html         # Studio page — Blockly workspace, canvas, audio controls
+    ├── studio.js          # Main entry point — wires workspace, sandbox, audio, music engine
+    ├── studio.css         # Studio-specific dark theme styles
+    ├── blocks.js          # Visual Blockly block definitions (Part A)
+    ├── generators.js      # Visual JS code generators (Part A)
+    ├── drawing-api.js     # p5.js-compatible Canvas 2D drawing API (Part A)
+    ├── sandbox.js         # Safe code execution via new Function() (Part A)
+    ├── audio-bridge.js    # Tone.js synth + mic pitch detection bridge (Part B)
+    ├── piano.js           # Clickable piano keyboard component (Part B)
+    ├── music-blocks.js    # Music Blockly block definitions — drums, bass, melody, song (Part C)
+    ├── music-generators.js # Music JS code generators — outputs clean Tone.js code (Part C)
+    └── music-engine.js    # MusicEngine class — Tone.Transport + instrument pooling (Part C)
 ```
 
 ## Technology Choices
@@ -642,6 +655,141 @@ Then open `http://localhost:8000` in a browser.
 - localStorage is available in all modern browsers but may be disabled in private/incognito mode.
 - Tested target: Chrome 90+, Firefox 88+, Safari 14+, Edge 90+.
 
+## Skratch Studio — Visual Coding + Music Creation
+
+### Overview
+
+A Blockly-based creative coding environment where kids build visual art and music using drag-and-drop blocks. The workspace generates real JavaScript — visuals use Canvas 2D API (p5.js-style), music uses Tone.js. Both run simultaneously. Built in three parts:
+
+- **Part A:** Blockly workspace, visual blocks, canvas drawing API, sandbox execution.
+- **Part B:** Audio bridge (Tone.js synth + mic pitch detection), piano keyboard, sound data blocks.
+- **Part C:** Music creation mode — drum/bass/melody/chord/song blocks, MusicEngine (Tone.Transport), music starters.
+
+### File Structure
+
+- `skratch-studio/index.html` — Studio page. Loads Blockly (CDN), `@blockly/field-colour` plugin, Tone.js (CDN). Layout: left panel (Blockly workspace), right panel (canvas + controls + code preview).
+- `skratch-studio/studio.js` — Main entry point. Registers all blocks/generators, creates workspace, wires sandbox + MusicEngine + AudioBridge + Piano. Manages Play/Stop (both canvas animation AND Tone.Transport). Contains all starter program definitions.
+- `skratch-studio/studio.css` — Dark theme styles. 60/40 flex layout, beat indicator, volume control, responsive.
+- `skratch-studio/blocks.js` — Visual Blockly block definitions (Part A).
+- `skratch-studio/generators.js` — Visual JS code generators (Part A).
+- `skratch-studio/drawing-api.js` — `DrawingAPI` class: p5.js-compatible Canvas 2D wrapper.
+- `skratch-studio/sandbox.js` — `Sandbox` class: compiles generated code via `new Function()`, runs in `requestAnimationFrame` loop.
+- `skratch-studio/audio-bridge.js` — `AudioBridge` class: Tone.Synth for piano, mic pitch detection via `shared/audio.js`.
+- `skratch-studio/piano.js` — `Piano` class: one-octave clickable keyboard (C4–B4).
+- `skratch-studio/music-blocks.js` — Music Blockly block definitions (Part C).
+- `skratch-studio/music-generators.js` — Music JS code generators (Part C).
+- `skratch-studio/music-engine.js` — `MusicEngine` class: Tone.Transport wrapper with instrument pooling (Part C).
+
+### Block Categories
+
+| Category | Color | Blocks | Source |
+|----------|-------|--------|--------|
+| Visuals | Purple/270 | draw_circle, draw_rect, draw_star, draw_line, set_fill, set_stroke, no_fill, set_stroke_weight, clear_canvas, set_background, draw_trail | blocks.js |
+| Motion | Blue/210 | move_to, move_to_center, rotate_by, grow_by, shrink_by, save_position, restore_position | blocks.js |
+| Events | Gold/45 | when_start_clicked, when_note_played, when_specific_note, when_pitch_threshold, every_n_beats | blocks.js |
+| Sound Data | Green/120 | current_pitch, current_note_name, volume_level, note_is_playing | blocks.js |
+| Math | Green/120 | map_value, random_number, canvas_width, canvas_height, frame_count | blocks.js |
+| Control | Orange/30 | repeat_times, simple_if, set_variable | blocks.js |
+| Drums | Red/0 | play_kick, play_snare, play_hihat, drum_pattern | music-blocks.js |
+| Bass | Deep Blue/240 | play_bass_note, bass_pattern | music-blocks.js |
+| Melody | Pink/330 | play_melody_note, play_chord, rest | music-blocks.js |
+| Song | Teal/170 | music_start, section, repeat_section | music-blocks.js |
+| Timing | Gold/50 | set_tempo | music-blocks.js |
+
+### MusicEngine (music-engine.js)
+
+Wraps `Tone.Transport` for scheduling music events. Provides instrument pooling — instruments are created once and reused.
+
+**Instruments:**
+| Name | Tone.js Type | Description |
+|------|-------------|-------------|
+| kick | MembraneSynth | Low-frequency membrane hit |
+| snare | NoiseSynth | White noise burst |
+| hihat | MetalSynth | High metallic click |
+| bass | MonoSynth | Sawtooth bass with lowpass filter |
+| melody | Synth | Triangle wave lead |
+| chords | PolySynth | Polyphonic (up to 6 voices) for triads |
+
+All instruments route through a shared `Tone.Volume` node for master volume control.
+
+**Key methods:**
+- `ensureTone()` — Calls `Tone.start()` (must happen on user gesture), creates instruments.
+- `setBpm(bpm)` / `setVolume(db)` — Control tempo and volume.
+- `scheduleKick/Snare/Hihat/Bass/Melody/Chord(...)` — Schedule events on `Tone.Transport`.
+- `start()` / `stop()` — Start/stop transport. Stop also cancels all scheduled events.
+- `onBeat(callback)` / `startBeatLoop()` — Drive the visual beat indicator via `Tone.Draw`.
+- `destroy()` — Dispose all instruments and cleanup.
+
+### Music Code Generation (music-generators.js)
+
+Generators output **clean, readable Tone.js code** — not engine method calls. Example output:
+
+```javascript
+// rock drum pattern
+kick.triggerAttackRelease('C1', '8n', '0:0:0');
+snare.triggerAttackRelease('8n', '0:1:0');
+hihat.triggerAttackRelease('C4', '32n', '0:0:2');
+bass.triggerAttackRelease('C2', '4n', '0:0:0');
+melody.triggerAttackRelease('E4', '4n', '0:0:0');
+chords.triggerAttackRelease(['C4', 'E4', 'G4'], '2n', '0:0:0');
+```
+
+**Chord definitions** match the chord identification game (`chords/index.html`):
+- Major = root + 4 semitones + 7 semitones (e.g., C Major = C4, E4, G4)
+- Minor = root + 3 semitones + 7 semitones
+- Diminished = root + 3 semitones + 6 semitones
+
+**Drum pattern presets:** Rock, Disco, Hip Hop, Four on Floor.
+**Bass pattern presets:** Root Notes, Walking Bass, Octave Bounce, Funky.
+
+### Music Execution Architecture
+
+When Play is pressed:
+1. `Tone.start()` is called (user gesture requirement).
+2. Generated code is passed to the visual `Sandbox` for canvas animation.
+3. The same code is executed in a separate `new Function()` context where instrument names (`kick`, `snare`, etc.) resolve to proxy objects that forward `.triggerAttackRelease()` calls to `MusicEngine.schedule*()` methods.
+4. Visual function names (`circle`, `fill`, etc.) are bound to no-ops in the music execution context to avoid errors on mixed visual+music code.
+5. `Tone.Transport.start()` begins playback of all scheduled events.
+6. `Sandbox.startLoop()` begins the `requestAnimationFrame` visual loop.
+7. Both run simultaneously — music via Tone.Transport, visuals via rAF.
+
+When Stop is pressed: both `Sandbox.stop()` and `MusicEngine.stop()` are called.
+
+### Starter Programs
+
+| Name | Category | Description |
+|------|----------|-------------|
+| Circles | Visual | Concentric circles with grow effect |
+| Rainbow Grid | Visual | Nested loop grid pattern |
+| Spiral | Visual | Rotating circle spiral |
+| Sound Circles | Visual | Circles appear when notes are detected |
+| Note Garden | Visual | Different shapes for each note (C–B) |
+| Bounce | Visual | Trail effect with note-triggered rings |
+| First Beat | Music | Basic rock beat — kick/snare/hihat pattern |
+| Bass Groove | Music | Rock drums + bass line |
+| My First Song | Music | Drums + bass + melody + two sections (verse/chorus) |
+| Beat Painter | Music+Visual | Hip-hop drums + visual blocks triggered by beat timers |
+| Blank Canvas | — | Empty workspace |
+
+### UI Controls
+
+- **Play/Stop** — Starts/stops both canvas animation and Tone.Transport.
+- **BPM slider** (60–180, default 120) — Controls both sandbox beat timers and Tone.Transport tempo.
+- **Volume slider** (0–100%, default 75%) — Controls MusicEngine master volume (maps to -40dB to 0dB).
+- **Beat indicator** — Circle that flashes purple on each quarter note beat via `Tone.Draw.schedule()`.
+- **Mic toggle** — Enables pitch detection, highlights piano keys.
+- **Piano keyboard** — Clickable one-octave keyboard for playing notes.
+- **Code preview** — Collapsible panel showing generated JavaScript.
+- **Starter dropdown** — Organized by Visual/Music optgroups.
+
+### Workspace Persistence
+
+Workspace state is saved to `localStorage` key `skratch-studio-workspace` on every non-UI change. Loaded on page init. Falls back to "Circles" starter if no saved state.
+
+### Cleanup
+
+All instruments are disposed on `beforeunload` via `MusicEngine.destroy()`, `AudioBridge.destroy()`, `Piano.destroy()`, and `Sandbox.destroy()`.
+
 ## Skratch — Visual Effects Module (Planned)
 
 **Status: Not yet implemented.** The `feature/skratch-effects` branch exists for this work, but `shared/skratch/` has not been created yet.
@@ -652,3 +800,4 @@ Then open `http://localhost:8000` in a browser.
 
 - Experiment with themes — try different color palettes, dark/light mode toggle, kid-friendly themes.
 - Implement Skratch visual effects module (`shared/skratch/`) — Canvas 2D particle system for game feedback.
+- Skratch Studio enhancements: looping playback for music (Tone.Transport.loop), more drum/bass presets, record and export audio.
