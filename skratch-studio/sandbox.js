@@ -17,6 +17,14 @@ export class Sandbox {
     this._noteCallbacks = [];
     this._beatTimers = [];
     this._bpm = 120;
+
+    // No-op instrument stubs so music blocks don't error in the visual sandbox.
+    // Real music scheduling happens separately via MusicEngine in studio.js.
+    const _noop = { triggerAttackRelease() {} };
+    this._noopInstruments = {
+      kick: _noop, snare: _noop, hihat: _noop,
+      bass: _noop, melody: _noop, chords: _noop,
+    };
   }
 
   setAudioState(audioState) {
@@ -47,7 +55,7 @@ export class Sandbox {
     }
 
     try {
-      // Build a function with drawing API locals + audio variables injected
+      // Build a function with drawing API locals + audio variables + instruments injected
       this._compiledFn = new Function(
         'circle', 'rect', 'ellipse', 'triangle', 'line', 'star',
         'fill', 'stroke', 'noFill', 'noStroke', 'strokeWeight', 'background',
@@ -58,6 +66,8 @@ export class Sandbox {
         // Audio variables
         'currentPitch', 'currentNoteName', 'currentVolume', 'noteIsPlaying',
         'onNotePlayed', 'everyNBeats',
+        // Music instruments (no-op stubs in sandbox; real proxies in executeMusicCode)
+        '_instruments',
         code
       );
     } catch (e) {
@@ -116,7 +126,9 @@ export class Sandbox {
       audio.currentNoteName || '--',
       audio.currentVolume || 0,
       audio.noteIsPlaying || false,
-      onNotePlayed, everyNBeats
+      onNotePlayed, everyNBeats,
+      // Music instruments (no-ops — real scheduling is via MusicEngine)
+      this._noopInstruments
     );
   }
 

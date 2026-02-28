@@ -654,45 +654,46 @@ async function handlePlay() {
 
 function executeMusicCode(code) {
   try {
-    // Build a function with instrument-named objects that forward to MusicEngine scheduling
-    const kickProxy = {
-      triggerAttackRelease(note, dur, time) {
-        musicEngine.scheduleKick(time, note);
-      }
-    };
-    const snareProxy = {
-      triggerAttackRelease(dur, time) {
-        musicEngine.scheduleSnare(time);
-      }
-    };
-    const hihatProxy = {
-      triggerAttackRelease(note, dur, time) {
-        musicEngine.scheduleHihat(time);
-      }
-    };
-    const bassProxy = {
-      triggerAttackRelease(note, dur, time) {
-        musicEngine.scheduleBass(note, dur, time);
-      }
-    };
-    const melodyProxy = {
-      triggerAttackRelease(note, dur, time) {
-        musicEngine.scheduleMelody(note, dur, time);
-      }
-    };
-    const chordsProxy = {
-      triggerAttackRelease(notes, dur, time) {
-        musicEngine.scheduleChord(notes, dur, time);
-      }
+    // Build proxy instruments that forward .triggerAttackRelease() to MusicEngine scheduling
+    const instrumentsProxy = {
+      kick: {
+        triggerAttackRelease(note, dur, time) {
+          musicEngine.scheduleKick(time, note);
+        }
+      },
+      snare: {
+        triggerAttackRelease(dur, time) {
+          musicEngine.scheduleSnare(time);
+        }
+      },
+      hihat: {
+        triggerAttackRelease(note, dur, time) {
+          musicEngine.scheduleHihat(time);
+        }
+      },
+      bass: {
+        triggerAttackRelease(note, dur, time) {
+          musicEngine.scheduleBass(note, dur, time);
+        }
+      },
+      melody: {
+        triggerAttackRelease(note, dur, time) {
+          musicEngine.scheduleMelody(note, dur, time);
+        }
+      },
+      chords: {
+        triggerAttackRelease(notes, dur, time) {
+          musicEngine.scheduleChord(notes, dur, time);
+        }
+      },
     };
 
-    // Create the Tone proxy for tempo setting
+    // Tone proxy for set_tempo blocks — syncs MusicEngine + UI slider
     const ToneProxy = {
       Transport: {
         bpm: {
           set value(v) {
             musicEngine.setBpm(v);
-            // Sync UI
             const slider = document.getElementById('bpmSlider');
             const display = document.getElementById('bpmValue');
             if (slider) slider.value = v;
@@ -703,9 +704,12 @@ function executeMusicCode(code) {
       }
     };
 
+    // The generated code declares `const kick = _instruments.kick;` etc.
+    // so we pass the proxy object as `_instruments` and Tone for tempo.
+    // Visual params are no-ops so mixed visual+music code doesn't error.
+    const noop = () => {};
     const fn = new Function(
-      'kick', 'snare', 'hihat', 'bass', 'melody', 'chords', 'Tone',
-      // Also pass through visual API params so mixed code doesn't error
+      '_instruments', 'Tone',
       'circle', 'rect', 'ellipse', 'triangle', 'line', 'star',
       'fill', 'stroke', 'noFill', 'noStroke', 'strokeWeight', 'background',
       'push', 'pop', 'translate', 'rotate', 'scale',
@@ -717,13 +721,11 @@ function executeMusicCode(code) {
       code
     );
 
-    // Provide no-op stubs for visual functions so they don't error during music scheduling
-    const noop = () => {};
     fn(
-      kickProxy, snareProxy, hihatProxy, bassProxy, melodyProxy, chordsProxy, ToneProxy,
+      instrumentsProxy, ToneProxy,
       noop, noop, noop, noop, noop, noop,
       noop, noop, noop, noop, noop, noop,
-      noop, noop, noop, noop, noop, noop,
+      noop, noop, noop, noop, noop,
       noop, noop, noop, noop, noop,
       400, 400, 0, 0, 0,
       Math, Math.PI,

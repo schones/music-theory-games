@@ -253,7 +253,16 @@ export function registerMusicGenerators() {
 
   js.forBlock['music_start'] = function(block) {
     const body = js.statementToCode(block, 'DO');
-    return `// 🎵 Music\n${body}`;
+    // Declare instrument variables from the injected _instruments object
+    // so that blocks like kick.triggerAttackRelease(...) resolve correctly.
+    return `// 🎵 Music — set up instruments\n` +
+      `const kick = _instruments.kick;\n` +
+      `const snare = _instruments.snare;\n` +
+      `const hihat = _instruments.hihat;\n` +
+      `const bass = _instruments.bass;\n` +
+      `const melody = _instruments.melody;\n` +
+      `const chords = _instruments.chords;\n\n` +
+      body;
   };
 }
 
