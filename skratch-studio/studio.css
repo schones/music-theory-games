@@ -284,6 +284,55 @@
   justify-content: center;
 }
 
+/* --- Loop Toggle --- */
+.loop-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.loop-toggle input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border: 1px solid #45475a;
+  border-radius: 3px;
+  background: #2a2a3e;
+  cursor: pointer;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.loop-toggle input[type="checkbox"]:checked {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.loop-toggle input[type="checkbox"]:checked::after {
+  content: '';
+  position: absolute;
+  left: 3px;
+  top: 0px;
+  width: 5px;
+  height: 9px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.loop-toggle__label {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.loop-toggle input[type="checkbox"]:checked ~ .loop-toggle__label {
+  color: #cdd6f4;
+}
+
 /* --- Beat Indicator --- */
 .beat-indicator {
   width: 14px;

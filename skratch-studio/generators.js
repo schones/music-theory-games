@@ -4,6 +4,9 @@ export function registerGenerators() {
   const js = Blockly.JavaScript;
   const Order = js.ORDER_ATOMIC ? js : Blockly.JavaScript;
 
+  // Emit highlightBlock(blockId) before each statement block's generated code
+  js.STATEMENT_PREFIX = 'highlightBlock(%1);\n';
+
   // ===================== VISUALS =====================
 
   js.forBlock['draw_circle'] = function(block) {

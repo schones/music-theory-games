@@ -25,6 +25,13 @@ export class Sandbox {
       kick: _noop, snare: _noop, hihat: _noop,
       bass: _noop, melody: _noop, chords: _noop,
     };
+
+    // Block highlighting callback (set by studio.js)
+    this._highlightFn = () => {};
+  }
+
+  setHighlightFn(fn) {
+    this._highlightFn = fn || (() => {});
   }
 
   setAudioState(audioState) {
@@ -47,7 +54,18 @@ export class Sandbox {
     this._trailMode = false;
     this._noteCallbacks = [];
     this._beatTimers = [];
+    this._compile(code);
+  }
 
+  // Hot-swap compiled function without stopping the rAF loop (used for live editing)
+  recompile(code) {
+    this.clearError();
+    this._noteCallbacks = [];
+    this._beatTimers = [];
+    this._compile(code);
+  }
+
+  _compile(code) {
     // Check for trail mode flag in generated code
     if (code.includes('__TRAIL_MODE__')) {
       this._trailMode = true;
@@ -68,6 +86,8 @@ export class Sandbox {
         'onNotePlayed', 'everyNBeats',
         // Music instruments (no-op stubs in sandbox; real proxies in executeMusicCode)
         '_instruments',
+        // Block highlighting
+        'highlightBlock',
         code
       );
     } catch (e) {
@@ -128,7 +148,9 @@ export class Sandbox {
       audio.noteIsPlaying || false,
       onNotePlayed, everyNBeats,
       // Music instruments (no-ops — real scheduling is via MusicEngine)
-      this._noopInstruments
+      this._noopInstruments,
+      // Block highlighting
+      this._highlightFn
     );
   }
 
@@ -139,6 +161,13 @@ export class Sandbox {
         timer.lastFired = frame;
         try { timer.cb(); } catch (e) { /* ignore */ }
       }
+    }
+  }
+
+  restartLoop() {
+    this.api.frameCount = 0;
+    for (const timer of this._beatTimers) {
+      timer.lastFired = 0;
     }
   }
 

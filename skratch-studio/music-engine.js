@@ -8,6 +8,19 @@ export class MusicEngine {
     this._scheduledIds = [];
     this._onBeatCallback = null;
     this._beatLoopId = null;
+    this._loopEndBar = 1; // tracks the end of the last scheduled measure
+    this._loopCallback = null;
+    this._rescheduleCallback = null;
+    this._boundLoopHandler = (time) => {
+      // Synchronous reschedule fires first — clears & re-schedules events
+      // before the transport plays the next loop iteration
+      if (this._rescheduleCallback) {
+        this._rescheduleCallback();
+      }
+      if (this._loopCallback) {
+        Tone.Draw.schedule(() => this._loopCallback(), time);
+      }
+    };
   }
 
   async ensureTone() {
@@ -86,6 +99,58 @@ export class MusicEngine {
     if (this._volume) this._volume.volume.value = db;
   }
 
+  setLoop(enabled) {
+    // Compute loop end in seconds from BPM to avoid Tone.js time-string parsing issues.
+    // 4 beats per measure (4/4 time).
+    const bpm = Tone.Transport.bpm.value;
+    const secondsPerBeat = 60 / bpm;
+    const loopEndSec = secondsPerBeat * 4 * this._loopEndBar;
+
+    // Set boundaries BEFORE enabling loop — Tone's internal TimelineValue
+    // can lose the boolean if loopEnd is still 0 when loop flips to true.
+    Tone.Transport.loopStart = 0;
+    Tone.Transport.loopEnd = loopEndSec;
+    Tone.Transport.loop = enabled;
+
+    console.log('[Loop] setLoop:', {
+      enabled,
+      measures: this._loopEndBar,
+      bpm,
+      loopEndSec: loopEndSec.toFixed(3) + 's',
+      readback: {
+        loop: Tone.Transport.loop,
+        loopEnd: Tone.Transport.loopEnd,
+        loopStart: Tone.Transport.loopStart,
+      }
+    });
+  }
+
+  onLoopRestart(callback) {
+    this._loopCallback = callback;
+    this._updateLoopListener();
+  }
+
+  onLoopReschedule(callback) {
+    this._rescheduleCallback = callback;
+    this._updateLoopListener();
+  }
+
+  _updateLoopListener() {
+    Tone.Transport.off('loop', this._boundLoopHandler);
+    if (this._loopCallback || this._rescheduleCallback) {
+      Tone.Transport.on('loop', this._boundLoopHandler);
+    }
+  }
+
+  // Clear all scheduled music events (but keep beat loop and transport running)
+  clearScheduledEvents() {
+    for (const id of this._scheduledIds) {
+      Tone.Transport.clear(id);
+    }
+    this._scheduledIds = [];
+    this._loopEndBar = 1;
+  }
+
   start() {
     Tone.Transport.start();
   }
@@ -93,13 +158,24 @@ export class MusicEngine {
   stop() {
     Tone.Transport.stop();
     Tone.Transport.cancel();
+    Tone.Transport.loop = false;
+    Tone.Transport.off('loop', this._boundLoopHandler);
+    this._loopCallback = null;
+    this._rescheduleCallback = null;
     this._scheduledIds = [];
+    this._loopEndBar = 1;
     this._stopBeatLoop();
   }
 
   // --- Scheduling API (called by compiled music code) ---
 
+  _trackTime(time) {
+    const bar = (parseInt(time.split(':')[0], 10) || 0) + 1;
+    if (bar > this._loopEndBar) this._loopEndBar = bar;
+  }
+
   scheduleKick(time, note) {
+    this._trackTime(time);
     note = note || 'C1';
     const id = Tone.Transport.schedule((t) => {
       this._instruments.kick.triggerAttackRelease(note, '8n', t);
@@ -108,6 +184,7 @@ export class MusicEngine {
   }
 
   scheduleSnare(time) {
+    this._trackTime(time);
     const id = Tone.Transport.schedule((t) => {
       this._instruments.snare.triggerAttackRelease('8n', t);
     }, time);
@@ -115,6 +192,7 @@ export class MusicEngine {
   }
 
   scheduleHihat(time) {
+    this._trackTime(time);
     const id = Tone.Transport.schedule((t) => {
       this._instruments.hihat.triggerAttackRelease('C4', '32n', t);
     }, time);
@@ -122,6 +200,7 @@ export class MusicEngine {
   }
 
   scheduleBass(note, duration, time) {
+    this._trackTime(time);
     const id = Tone.Transport.schedule((t) => {
       this._instruments.bass.triggerAttackRelease(note, duration, t);
     }, time);
@@ -129,6 +208,7 @@ export class MusicEngine {
   }
 
   scheduleMelody(note, duration, time) {
+    this._trackTime(time);
     const id = Tone.Transport.schedule((t) => {
       this._instruments.melody.triggerAttackRelease(note, duration, t);
     }, time);
@@ -136,6 +216,7 @@ export class MusicEngine {
   }
 
   scheduleChord(notes, duration, time) {
+    this._trackTime(time);
     const id = Tone.Transport.schedule((t) => {
       this._instruments.chords.triggerAttackRelease(notes, duration, t);
     }, time);

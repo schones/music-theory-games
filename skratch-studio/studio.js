@@ -428,6 +428,17 @@ let audioBridge = null;
 let musicEngine = null;
 let piano = null;
 let _beatIndicatorTimeout = null;
+let _highlightEnabled = false;
+let _workspaceDirty = false;
+let _isPlaying = false;
+
+// Music blocks whose highlights should be scheduled on-beat via Tone.Transport
+// rather than highlighted every frame in the visual sandbox loop
+const BEAT_SYNCED_BLOCKS = new Set([
+  'play_kick', 'play_snare', 'play_hihat', 'drum_pattern',
+  'play_bass_note', 'bass_pattern',
+  'play_melody_note', 'play_chord',
+]);
 
 export function init() {
   // Register custom blocks and generators (visual + music)
@@ -579,11 +590,45 @@ export function init() {
     });
   }
 
+  // Loop toggle — update Tone.Transport.loop live during playback
+  document.getElementById('chkLoop').addEventListener('change', (e) => {
+    if (_isPlaying && musicEngine._started) {
+      const loop = e.target.checked;
+      console.log('[Loop] Live toggle:', loop);
+      musicEngine.setLoop(loop);
+      if (loop) {
+        // Wire up live editing reschedule + visual restart
+        musicEngine.onLoopReschedule(() => {
+          if (!_workspaceDirty) return;
+          _workspaceDirty = false;
+          console.log('[LiveEdit] Rescheduling — workspace changed');
+          const newCode = generateCode();
+          const newHasMusic = /\b(kick|snare|hihat|bass|melody|chords)\.(trigger|Tone\.Transport)/.test(newCode);
+          musicEngine.clearScheduledEvents();
+          if (newHasMusic) executeMusicCode(newCode);
+          musicEngine.setLoop(true);
+          sandbox.recompile(newCode);
+        });
+        musicEngine.onLoopRestart(() => {
+          console.log('[Loop] Transport looped — restarting visual animation');
+          sandbox.restartLoop();
+        });
+      } else {
+        musicEngine.onLoopReschedule(null);
+        musicEngine.onLoopRestart(null);
+      }
+    }
+  });
+
   // Update code preview on workspace change + auto-save
   workspace.addChangeListener((e) => {
     if (e.isUiEvent) return;
     updateCodePreview();
     saveWorkspace();
+    // Mark workspace dirty for live editing (changes applied at next loop)
+    if (_isPlaying && document.getElementById('chkLoop').checked) {
+      _workspaceDirty = true;
+    }
   });
 
   // Load saved workspace or default starter
@@ -624,9 +669,21 @@ async function handlePlay() {
   audioBridge.onNotePlayed(() => sandbox.fireNoteCallbacks());
 
   const code = generateCode();
+  _workspaceDirty = false;
+  _isPlaying = true;
 
   // Check if code contains music blocks (Tone.js instrument calls)
   const hasMusic = /\b(kick|snare|hihat|bass|melody|chords)\.(trigger|Tone\.Transport)/.test(code);
+
+  // Set up block highlighting — visual blocks highlight every frame,
+  // beat-synced music blocks are handled separately by executeMusicCode()
+  _highlightEnabled = true;
+  sandbox.setHighlightFn((id) => {
+    if (!_highlightEnabled) return;
+    const block = workspace.getBlockById(id);
+    if (block && BEAT_SYNCED_BLOCKS.has(block.type)) return;
+    workspace.highlightBlock(id);
+  });
 
   // Always run visual sandbox (it handles visual-only code fine)
   sandbox.run(code);
@@ -641,6 +698,41 @@ async function handlePlay() {
     // Execute the music code in a context where instrument names resolve to engine methods
     executeMusicCode(code);
 
+    // Enable looping if the Loop checkbox is checked
+    const loopEnabled = document.getElementById('chkLoop').checked;
+    console.log('[Loop] Checkbox checked:', loopEnabled);
+    // Always set loop boundaries so live toggling during playback works
+    musicEngine.setLoop(loopEnabled);
+
+    // Register synchronous reschedule handler — fires at the transport loop point
+    // BEFORE the next iteration plays, so we can swap in updated code
+    musicEngine.onLoopReschedule(() => {
+      if (!_workspaceDirty) return;
+      _workspaceDirty = false;
+      console.log('[LiveEdit] Rescheduling — workspace changed');
+
+      const newCode = generateCode();
+      const newHasMusic = /\b(kick|snare|hihat|bass|melody|chords)\.(trigger|Tone\.Transport)/.test(newCode);
+
+      // Clear all old scheduled music events and re-execute
+      musicEngine.clearScheduledEvents();
+      if (newHasMusic) {
+        executeMusicCode(newCode);
+      }
+
+      // Update loop boundaries to match new code
+      musicEngine.setLoop(true);
+
+      // Hot-swap the visual sandbox code (rAF loop keeps running)
+      sandbox.recompile(newCode);
+    });
+
+    // Register loop restart handler (resets visual animation on each loop)
+    musicEngine.onLoopRestart(() => {
+      console.log('[Loop] Transport looped — restarting visual animation');
+      sandbox.restartLoop();
+    });
+
     // Start beat indicator
     musicEngine.onBeat(() => flashBeatIndicator());
     musicEngine.startBeatLoop();
@@ -654,36 +746,55 @@ async function handlePlay() {
 
 function executeMusicCode(code) {
   try {
+    // Track current block ID so instrument proxies can schedule on-beat highlights
+    let _currentMusicBlockId = null;
+    const musicHighlight = (id) => {
+      _currentMusicBlockId = id;
+    };
+
     // Build proxy instruments that forward .triggerAttackRelease() to MusicEngine scheduling
+    // and schedule block highlights to fire in sync with Tone.Transport
     const instrumentsProxy = {
       kick: {
         triggerAttackRelease(note, dur, time) {
+          const blockId = _currentMusicBlockId;
           musicEngine.scheduleKick(time, note);
+          scheduleMusicHighlight(blockId, time);
         }
       },
       snare: {
         triggerAttackRelease(dur, time) {
+          const blockId = _currentMusicBlockId;
           musicEngine.scheduleSnare(time);
+          scheduleMusicHighlight(blockId, time);
         }
       },
       hihat: {
         triggerAttackRelease(note, dur, time) {
+          const blockId = _currentMusicBlockId;
           musicEngine.scheduleHihat(time);
+          scheduleMusicHighlight(blockId, time);
         }
       },
       bass: {
         triggerAttackRelease(note, dur, time) {
+          const blockId = _currentMusicBlockId;
           musicEngine.scheduleBass(note, dur, time);
+          scheduleMusicHighlight(blockId, time);
         }
       },
       melody: {
         triggerAttackRelease(note, dur, time) {
+          const blockId = _currentMusicBlockId;
           musicEngine.scheduleMelody(note, dur, time);
+          scheduleMusicHighlight(blockId, time);
         }
       },
       chords: {
         triggerAttackRelease(notes, dur, time) {
+          const blockId = _currentMusicBlockId;
           musicEngine.scheduleChord(notes, dur, time);
+          scheduleMusicHighlight(blockId, time);
         }
       },
     };
@@ -718,6 +829,7 @@ function executeMusicCode(code) {
       'Math', 'PI',
       'currentPitch', 'currentNoteName', 'currentVolume', 'noteIsPlaying',
       'onNotePlayed', 'everyNBeats',
+      'highlightBlock',
       code
     );
 
@@ -730,7 +842,8 @@ function executeMusicCode(code) {
       400, 400, 0, 0, 0,
       Math, Math.PI,
       0, '--', 0, false,
-      noop, noop
+      noop, noop,
+      musicHighlight
     );
   } catch (e) {
     // Music code errors shown in error bar
@@ -742,9 +855,26 @@ function executeMusicCode(code) {
   }
 }
 
+function scheduleMusicHighlight(blockId, time) {
+  if (!blockId) return;
+  Tone.Transport.schedule((t) => {
+    Tone.Draw.schedule(() => {
+      if (_highlightEnabled) {
+        workspace.highlightBlock(blockId);
+      }
+    }, t);
+  }, time);
+}
+
 function handleStop() {
+  _highlightEnabled = false;
+  _isPlaying = false;
+  _workspaceDirty = false;
   sandbox.stop();
   musicEngine.stop();
+
+  // Clear all block highlights
+  workspace.highlightBlock(null);
 
   document.getElementById('btnPlay').disabled = false;
   document.getElementById('btnStop').disabled = true;
@@ -772,7 +902,9 @@ function generateCode() {
 }
 
 function updateCodePreview() {
-  const code = generateCode();
+  let code = generateCode();
+  // Strip highlightBlock() calls from preview so generated code stays clean
+  code = code.replace(/highlightBlock\('[^']*'\);\n/g, '');
   document.getElementById('codePreviewContent').textContent = code || '// Drag blocks to start coding!';
 }
 
