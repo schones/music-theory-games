@@ -20,8 +20,8 @@ music-theory-games/
 │   └── config.example.js  # Template — copy to config.js and add your key
 ├── harmony/               # Interval training game
 │   ├── index.html         # Game page (inline CSS/JS)
-│   ├── intervals.js       # Legacy game logic (not imported — superseded by inline JS in index.html)
-│   ├── interval-game.js   # Legacy game controller (not imported — superseded by inline JS in index.html)
+│   ├── intervals.js       # Legacy (not imported — superseded by inline JS)
+│   ├── interval-game.js   # Legacy (not imported — superseded by inline JS)
 │   └── styles.css         # Game-specific styles
 ├── chords/                # Chord identification game
 │   └── index.html         # Game page (inline CSS/JS)
@@ -41,15 +41,15 @@ music-theory-games/
 │   └── index.html         # Tool page (inline CSS/JS)
 └── skratch-studio/        # Skratch Studio — visual coding + music creation
     ├── index.html         # Studio page — Blockly workspace, canvas, audio controls
-    ├── studio.js          # Main entry point — wires workspace, sandbox, audio, music engine
+    ├── studio.js          # Main entry — wires workspace, sandbox, audio, music engine
     ├── studio.css         # Studio-specific dark theme styles
     ├── blocks.js          # Visual Blockly block definitions (Part A)
     ├── generators.js      # Visual JS code generators (Part A)
     ├── drawing-api.js     # p5.js-compatible Canvas 2D drawing API (Part A)
     ├── sandbox.js         # Safe code execution via new Function() (Part A)
-    ├── audio-bridge.js    # Tone.js synth + mic pitch detection bridge (Part B)
-    ├── piano.js           # Clickable piano keyboard component (Part B)
-    ├── music-blocks.js    # Music Blockly block definitions — drums, bass, melody, song (Part C)
+    ├── audio-bridge.js    # PolySynth keyboard + mic pitch detection bridge (Part B)
+    ├── piano.js           # Two-octave keyboard G3–G5 with computer key mapping (Part B)
+    ├── music-blocks.js    # Music Blockly block definitions (Part C)
     ├── music-generators.js # Music JS code generators — outputs clean Tone.js code (Part C)
     └── music-engine.js    # MusicEngine class — Tone.Transport + instrument pooling (Part C)
 ```
@@ -67,618 +67,97 @@ music-theory-games/
 
 ### shared/styles.css
 
-Global design system. Import in every HTML page via `<link>`. Defines:
-
-- **CSS custom properties** on `:root` — color palette (kid-friendly, high contrast), font sizes, spacing scale, border radii, shadows.
-- **Base reset** and typography (system font stack).
-- **Utility classes** — `.container`, `.btn`, `.btn--primary`, `.btn--secondary`, `.card`, `.badge`, `.gauge-*` classes.
-- **Responsive layout** — mobile-first, works on tablets and desktops.
-- **Animations** — `@keyframes` for success/failure feedback, score popups, gauge needle movement.
+Global design system imported in every HTML page. Defines CSS custom properties on `:root` (colors, spacing, typography), base reset, utility classes (`.container`, `.btn`, `.card`, `.badge`, `.gauge-*`), responsive layout, and `@keyframes` animations.
 
 ### shared/progress.js
 
-Exports an ES6 module for score tracking and leaderboards. All data in localStorage.
-
-**Key exports:**
-
-- `saveScore(game, playerName, score, metadata)` — Persist a score entry.
-- `getLeaderboard(game, limit?)` — Retrieve top scores for a game, sorted descending.
-- `clearLeaderboard(game)` — Reset a game's leaderboard.
-- `getStats(game, playerName?)` — Aggregate stats (total games, average score, best streak).
-- `savePreference(key, value)` / `getPreference(key, defaultValue)` — Generic prefs storage.
-
-**Storage schema (localStorage keys):**
-
-- `mtt_leaderboard_{game}` — JSON array of `{ playerName, score, date, metadata }`.
-- `mtt_prefs` — JSON object of user preferences.
+Score tracking and leaderboards (localStorage). Key exports: `saveScore(game, playerName, score, metadata)`, `getLeaderboard(game, limit?)`, `clearLeaderboard(game)`, `getStats(game, playerName?)`, `savePreference(key, value)`, `getPreference(key, defaultValue)`. Storage keys: `mtt_leaderboard_{game}`, `mtt_prefs`.
 
 ### shared/audio.js
 
-Web Audio API utility module. Wraps Tone.js for synthesis and raw Web Audio for pitch detection.
-
-**Key exports:**
-
-- `initAudio()` — Create/resume AudioContext (must be called from user gesture). Returns context.
-- `playNote(noteName, duration?, options?)` — Play a note using Tone.js synth. `noteName` is scientific pitch like `"C4"`, `"F#3"`.
-- `playInterval(rootNote, intervalSemitones, mode)` — Play two notes as harmonic (simultaneous) or melodic (sequential).
-- `startPitchDetection(callback)` — Request mic access, run autocorrelation pitch detection, call `callback(frequency, noteName, centsOff)` per frame.
-- `stopPitchDetection()` — Stop mic stream and detection loop.
-- `frequencyToNote(freq)` — Convert Hz to `{ noteName, octave, cents }`.
-- `noteToFrequency(noteName)` — Convert scientific pitch name to Hz.
-- `getIntervalName(semitones)` — Map semitone count to interval name (e.g., 7 → "Perfect 5th").
-- `getSemitones(intervalName)` — Reverse lookup.
-
-**Pitch detection algorithm:** Autocorrelation on raw audio buffer from `AnalyserNode.getFloatTimeDomainData()`. Finds the dominant period by locating the first significant peak in the autocorrelation function after the initial drop. Resolution is sufficient for distinguishing semitones in the C3–C5 range.
+Web Audio API utilities. Key exports:
+- `initAudio()` — Create/resume AudioContext (must be called from user gesture).
+- `playNote(noteName, duration?, options?)` — Play note via Tone.js. Scientific pitch: `"C4"`, `"F#3"`.
+- `playInterval(rootNote, intervalSemitones, mode)` — Harmonic (simultaneous) or melodic (sequential).
+- `startPitchDetection(callback)` / `stopPitchDetection()` — Mic autocorrelation pitch detection. Callback: `(frequency, noteName, centsOff)`.
+- `frequencyToNote(freq)` / `noteToFrequency(noteName)` — Hz ↔ scientific pitch conversion.
+- `getIntervalName(semitones)` / `getSemitones(intervalName)` — Interval name lookup.
 
 ### shared/config.js
 
-API key configuration. **Not committed to git** — each developer copies `config.example.js` to `config.js` and adds their own key.
-
-**Setup:**
-
-```bash
-cp shared/config.example.js shared/config.js
-# Edit shared/config.js and add your Anthropic API key
-```
-
-**Exports:**
-
-- `CLAUDE_API_KEY` — Anthropic API key string. Empty string disables AI features.
+API key configuration (**gitignored**). Setup: `cp shared/config.example.js shared/config.js` then add key. Exports `CLAUDE_API_KEY`.
 
 ### shared/ai.js
 
-Adaptive difficulty tracking and optional AI tutor feedback. All features degrade gracefully if no API key is set — games work identically without one.
+Adaptive difficulty + optional AI tutor feedback. All features degrade gracefully without API key.
 
 **Key exports:**
+- `recordAttempt(game, skill, result)` — Track attempt. `result`: `{ hit, centsOff?, responseMs? }`.
+- `recordSession(game, sessionData)` — Save session summary (capped at 50 per game).
+- `getAdaptiveWeights(game, skills)` / `selectWeighted(game, skills)` — Weighted random selection biased toward weak skills.
+- `getWeakAreas(game, limit?)` — Skills sorted by weakness.
+- `getSessionFeedback(game, sessionData)` — Claude API call for kid-friendly feedback. Returns `null` on failure.
+- `isAIAvailable()` / `clearPerformance(game)`.
 
-- `recordAttempt(game, skill, result)` — Track a single practice attempt. `result` is `{ hit: boolean, centsOff?: number, responseMs?: number }`.
-- `recordSession(game, sessionData)` — Save a completed session summary (capped at 50 per game).
-- `getPerformance(game)` — Get raw performance data for a game.
-- `getPerformanceSummary(game)` — Get a human-readable summary (used as context for AI prompts).
-- `getAdaptiveWeights(game, skills)` — Calculate probability weights biased toward weak areas. Returns `{ [skill]: probability }` summing to 1.
-- `selectWeighted(game, skills)` — Pick a skill using adaptive weighted random selection.
-- `getWeakAreas(game, limit?)` — Get skills sorted by weakness (lowest accuracy first).
-- `getSessionFeedback(game, sessionData)` — Call Claude API for post-session feedback. Returns `null` if no API key or on failure.
-- `isAIAvailable()` — Check if a Claude API key is configured.
-- `clearPerformance(game)` — Reset all tracking data for a game.
+**Adaptive algorithm:** Weight = `1 - accuracy`. Untried skills = 1.0. <5 attempts = 1.2× bonus. >24h since practice = 1.3× bonus. Normalized to probabilities summing to 1.
 
-**Storage schema (localStorage keys):**
+**AI tutor:** Calls `claude-haiku-4-5-20251001` with kid-friendly system prompt. Uses `anthropic-dangerous-direct-browser-access` header (acceptable for local use with gitignored key).
 
-- `mtt_ai_{game}` — JSON object `{ skills: { [name]: SkillData }, sessions: SessionData[] }`.
-- `SkillData`: `{ attempts, hits, totalCentsOff, totalResponseMs, lastAttempt, streak, bestStreak }`.
-- `SessionData`: `{ date, mode, difficulty, score, accuracy, ... }`.
+**Storage:** `mtt_ai_{game}` — `{ skills: { [name]: SkillData }, sessions: SessionData[] }`.
 
-**Adaptive algorithm:** Skills with lower accuracy receive higher selection weights. Base weight = `1 - accuracy`. Untried skills get weight 1.0. Skills with fewer than 5 attempts get a 1.2× novelty bonus. Skills not practiced in 24+ hours get a 1.3× recency bonus. All weights are normalized to probabilities summing to 1.
+## Games
 
-**AI tutor integration:** Optional. When `CLAUDE_API_KEY` is set, `getSessionFeedback()` calls the Claude API (`claude-haiku-4-5-20251001`) with a kid-friendly tutor system prompt and the session performance data. Returns 2–3 sentences of encouraging feedback, or `null` on any failure. Uses `anthropic-dangerous-direct-browser-access` header for browser-side requests — acceptable for local educational use since the key lives in a gitignored config file.
+All games follow the same pattern: single HTML file with inline `<style>` and `<script type="module">`, state machine game logic, plain object state with direct DOM manipulation, leaderboard via `shared/progress.js`, adaptive difficulty via `shared/ai.js`.
 
-**Game integration pattern:**
+### Harmony — Interval Training (game ID: `'harmony-training'`)
 
-```javascript
-import { recordAttempt, selectWeighted, getSessionFeedback } from '../shared/ai.js';
+Listen to intervals, guess the name. Practice mode (immediate feedback, replay) and test mode (10/20 questions, leaderboard). Three difficulty levels: Easy (5 intervals), Medium (10), Hard (all 13). Features: root note selection C3–C5, ascending/descending/harmonic direction, guitar-tuner SVG gauge, streak tracking, keyboard shortcuts 1–9. Legacy files `intervals.js` and `interval-game.js` exist but are **not imported**.
 
-// During gameplay — record each attempt
-recordAttempt('harmony-training', 'Perfect 5th', { hit: true, centsOff: -3 });
+### Chords — Chord Identification (game ID: `'chords'`)
 
-// When generating next question — use adaptive selection
-const nextInterval = selectWeighted('harmony-training', availableIntervals);
+Listen to chords, identify the type. Practice and test modes. Easy (Major/Minor), Medium (+Diminished), Hard (+inversions). Chord intervals: Major [0,4,7], Minor [0,3,7], Diminished [0,3,6]. Playback via PolySynth. Scoring: 100 base + streak bonus + difficulty multiplier. Keyboard shortcuts 1–3, Space replay, Enter next.
 
-// After session ends — get optional AI feedback
-const feedback = await getSessionFeedback('harmony-training', sessionSummary);
-if (feedback) showFeedbackToUser(feedback);
-```
+### Melody — Melody Echo (game ID: `'melody'`)
 
-## Harmony — Interval Training Game
+Listen to a melody, sing it back note by note via mic pitch detection. Practice and test modes. Difficulty controls interval range (stepwise → leaps). Progressive melody length: 3–6 notes, unlocked by consecutive perfects. Pitch stability detection (15 consecutive frames = lock). Per-note evaluation: correct/close/wrong/skipped. 6-second timeout per note. Keyboard: Space skip, Enter next, R replay.
 
-### Game Modes
+### Rhythm — Rhythm Training (game ID: `'rhythm'`)
 
-1. **Practice Mode** — Listen to intervals, guess the name. Immediate feedback after each guess. No time pressure. Intervals can be replayed. Shows the correct answer if wrong.
-2. **Test Mode** — 10 or 20 question quiz. Score tallied at end. Timed per-question (configurable). Results saved to leaderboard.
+Clap along to a metronome. Practice and test (8/16 measures) modes. Tolerance: Easy ±100ms, Medium ±50ms, Hard ±25ms. EKG-style canvas metronome, clap detection via mic RMS onset detection (threshold 0.05, cooldown 200ms), spacebar alternative. Configurable BPM (40–200) and time signature. Count-in before scoring.
 
-### Difficulty Levels
+### Strumming — Guitar Strumming Patterns (game ID: `'strumming'`)
 
-| Level  | Intervals Included |
-|--------|-------------------|
-| Easy   | Unison, m3, M3, P5, Octave (5 intervals) |
-| Medium | Easy + m2, M2, P4, m6, M6 (10 intervals) |
-| Hard   | All 13 intervals including tritone, m7, M7 |
+Play along to strumming patterns on guitar. Scrolling canvas timeline with target pattern. Practice (loops, no scoring) and test (4 measures, scored) modes. Tolerance: Easy ±100ms, Medium ±60ms, Hard ±30ms.
 
-### Features
+**Built-in patterns:** Basic 4/4 Downstrokes, Eighth Notes, Universal Strum, Rock Strum, Reggae Offbeat. Patterns defined as 8-element grids of `'D'`/`'U'`/`'-'`.
 
-- **Root note selection** — Dropdown from C3 to C5. Default C4.
-- **Direction** — Ascending, descending, or harmonic (simultaneous).
-- **Guitar-tuner gauge** — Visual feedback during pitch detection. Analog needle SVG showing detected pitch vs target, with cents-off display. Green zone = within ±10 cents, yellow = ±25, red = beyond.
-- **Leaderboard panel** — Shows top 10 scores for current difficulty. Pulls from `shared/progress.js`.
-- **Streak tracking** — Current streak and best streak displayed. Bonus points for streaks ≥ 3.
-- **Keyboard shortcuts** — Number keys 1–9 for quick interval selection during gameplay.
+**patterns.js exports:** `BUILT_IN_PATTERNS`, `getAllPatterns()`, `getPatternById(id)`, `getCustomPatterns()`, `saveCustomPattern(pattern)`, `deleteCustomPattern(id)`. Storage: `mtt_strumming_custom_patterns`.
 
-### Game Logic (inline in index.html)
+**detection.js** — Onset detection via transient detection with envelope tracking, sustain gate, and hard lockout. Key exports: `startDetection(audioCtx, onOnset, bpm?)`, `stopDetection()`, `isDetecting()`, `setDetectionBpm(bpm)`, `setLatencyCompensation(ms)`, `getLatencyCompensation()`.
 
-**Note:** `intervals.js` and `interval-game.js` exist in the directory but are **not imported** — the game logic was moved inline into `index.html`. These legacy files are retained for reference only.
+**Onset algorithm:** Smoothed RMS envelope (EMA, alpha=0.005). Onset fires when: (1) RMS > envelope × TRANSIENT_RATIO, (2) RMS > ABS_MIN_RMS, (3) RMS > prevFrame × ATTACK_VELOCITY_RATIO. Audio read every frame including during lockout. Lockout = `min(DEFAULT_LOCKOUT_MS, eighthNoteMs * 0.7)`.
 
-The game logic is a state machine:
+**Tunable constants (detection.js):**
+- `ABS_MIN_RMS` (0.05) — Minimum RMS floor
+- `TRANSIENT_RATIO` (1.5) — RMS must exceed envelope by this factor
+- `ENVELOPE_ALPHA` (0.005) — EMA smoothing factor
+- `ATTACK_VELOCITY_RATIO` (1.3) — Frame-to-frame RMS increase threshold
+- `DEFAULT_LOCKOUT_MS` (400) — Maximum lockout duration
+- `latencyCompensationMs` — Manual offset, persisted to `mtt_strumming_latency_ms`
 
-```
-IDLE → SETUP → PLAYING → ANSWER_GIVEN → (next question or RESULTS)
-```
+**Direction detection: DISABLED.** Code exists in `detection.js` (`classifyDirection()`) and `calibration.js` but is not called. Uses spectral centroid + low/high energy ratio. Planned for re-enablement when accuracy improves.
 
-**State management** is a plain object with a `render()` function that updates the DOM based on current state. No virtual DOM, no reactive bindings — direct DOM manipulation with `getElementById`/`querySelector`.
+**calibration.js** — Kept for future use. Not imported by game or detector pages. Guided calibration flow for strum direction detection. Storage: `mtt_strumming_calibration`.
 
-**Key internal functions:**
+### Detector — Strumming Pattern Detector (tool, not a game)
 
-- `generateQuestion(difficulty, rootNote)` — Pick random interval from difficulty pool, return `{ root, semitones, intervalName }`.
-- `checkAnswer(selectedInterval)` — Compare to current question, update score/streak, trigger feedback animation.
-- `renderGauge(centsOff)` — Update SVG needle rotation and zone coloring.
-- `renderLeaderboard()` — Pull and display scores from progress.js.
-- `startTest(numQuestions)` — Initialize test mode state.
-- `endTest()` — Calculate final score, save to leaderboard, show results.
-
-## Chords — Chord Identification Game
-
-### Game Modes
-
-1. **Practice Mode** — Listen to chords, pick the type. Immediate feedback. No time pressure. Replay anytime. Shows correct answer and chord notes if wrong.
-2. **Test Mode** — 10 question quiz with randomized root notes. Score tallied at end. Results saved to leaderboard. Optional AI tutor feedback.
-
-### Difficulty Levels
-
-| Level  | Chord Types                        | Inversions |
-|--------|------------------------------------|------------|
-| Easy   | Major, Minor (2 choices)           | Root only  |
-| Medium | Major, Minor, Diminished (3 choices) | Root only  |
-| Hard   | Major, Minor, Diminished (3 choices) | Random (root, 1st, 2nd) |
-
-### Chord Intervals
-
-| Type       | Semitones (root position) |
-|------------|--------------------------|
-| Major      | 0, 4, 7                  |
-| Minor      | 0, 3, 7                  |
-| Diminished | 0, 3, 6                  |
-
-### Features
-
-- **Chord playback via PolySynth** — Three notes played simultaneously using `playNote()` from `shared/audio.js`. Tone.js PolySynth handles polyphonic playback.
-- **Adaptive difficulty** — Uses `selectWeighted()` from `shared/ai.js` to bias question selection toward chord types the player identifies less accurately.
-- **AI tutor feedback** — After test mode, calls `getSessionFeedback()` for encouraging post-session feedback. Shows in a styled panel. Degrades gracefully if no API key.
-- **Scoring** — 100 base points per correct answer. Streak bonus: +25 at 3+, +50 at 5+. Difficulty multiplier: Easy 1×, Medium 1.5×, Hard 2×.
-- **Leaderboard panel** — Shows top scores via `shared/progress.js`. Game identifier: `'chords'`.
-- **Streak tracking** — Current streak and best streak displayed.
-- **Keyboard shortcuts** — Number keys 1–3 for chord type selection. Space to replay chord. Enter for next question (practice mode).
-- **Randomized roots in test mode** — Root notes vary per question (C3–B4 range) to prevent memorization.
-
-### chords/index.html Structure
-
-Single HTML file with inline `<style>` and `<script type="module">`. Game logic is a state machine:
-
-```
-SETUP → PLAYING → ANSWER_GIVEN → (next question or RESULTS)
-```
-
-**State management** is a plain object with direct DOM manipulation. No virtual DOM.
-
-**Key internal functions:**
-
-- `generateQuestion()` — Pick chord type (adaptive selection), apply inversion if hard, pick root.
-- `playChord(root, intervals)` — Play all chord notes simultaneously via PolySynth.
-- `handleAnswer(selected)` — Compare to current chord, update score/streak, record attempt with ai.js, trigger feedback.
-- `applyInversion(intervals, inversion)` — Shift lower notes up an octave for 1st/2nd inversions.
-- `loadNextQuestion()` — Reset UI, generate and auto-play next chord.
-- `showResults()` — Calculate final score, save to leaderboard, request AI feedback.
-
-## Melody — Melody Echo Game
-
-### Game Modes
-
-1. **Practice Mode** — Listen to a melody, sing it back note by note. Immediate per-note feedback with color-coded results. Replay melody anytime. No time pressure — "Next Melody" button to advance.
-2. **Test Mode** — 10 melodies. Score tallied at end. Results saved to leaderboard. Optional AI tutor feedback.
-
-### Difficulty Levels
-
-| Level  | Interval Range | Multiplier |
-|--------|---------------|------------|
-| Easy   | Stepwise only (adjacent scale degrees) | 1× |
-| Medium | Steps + 3rds (up to 2 scale degrees) | 1.5× |
-| Hard   | Steps + 3rds + leaps (up to 3 scale degrees) | 2× |
-
-### Progressive Melody Length
-
-Melodies start at 3 notes and can be unlocked up to 6 notes:
-
-- **3 notes** — Always available
-- **4 notes** — Unlocked after 3 consecutive perfect melodies at 3 notes
-- **5 notes** — Unlocked after 3 consecutive perfect at 4 notes
-- **6 notes** — Unlocked after 3 consecutive perfect at 5 notes
-
-Progression is saved via `shared/progress.js` preferences (`melody_max_length` key).
-
-### Features
-
-- **Scale-based melody generation** — Melodies use the major scale built from the selected key root. Notes move stepwise with occasional larger intervals based on difficulty.
-- **Adaptive starting note** — Uses `selectWeighted()` from `shared/ai.js` to start melodies on the user's weakest scale degree, naturally including problem notes.
-- **Pitch stability detection** — Notes are locked when the same semitone is detected for 15 consecutive frames (~250ms). Prevents flicker from noisy pitch readings.
-- **Per-note evaluation** — Each sung note is compared to the target: correct (same semitone, green), close (±1 semitone, yellow), wrong (red), or skipped.
-- **Note timeout** — If no stable pitch is detected within 6 seconds, the note is automatically skipped.
-- **Visual note boxes** — Row of boxes showing target notes. Boxes transition through states: playing (purple glow), active (gold pulse), locked (light purple), correct/close/wrong (green/yellow/red).
-- **Live pitch display** — Real-time display of detected pitch and frequency below the note boxes during singing.
-- **Melody replay** — After evaluation, replay the target melody to compare. Press R or click "Replay Melody".
-- **AI tutor feedback** — After test mode, calls `getSessionFeedback()` for encouraging post-session feedback.
-- **Scoring** — Per note: 100 correct, 25 close, 0 wrong. Perfect melody bonus: +50 × length. Streak bonus: +50 at 3+, +100 at 5+. All multiplied by difficulty.
-- **Leaderboard panel** — Shows top scores via `shared/progress.js`. Game identifier: `'melody'`.
-- **Streak tracking** — Consecutive perfect melodies (all notes correct).
-- **Keyboard shortcuts** — Space to skip note during listening, Enter for next melody (practice), R to replay.
-
-### Note Segmentation Algorithm
-
-```
-1. startPitchDetection() runs continuously from game start
-2. onPitch callback receives (frequency, noteInfo) per animation frame
-3. Track last 15 readings in pitchBuffer
-4. If all 15 are the same note → lock it in as the current note
-5. 400ms post-lock cooldown before accepting next note
-6. 6-second timeout per note → auto-skip if no stable pitch
-7. After all notes locked/skipped → evaluate
-```
-
-### melody/index.html Structure
-
-Single HTML file with inline `<style>` and `<script type="module">`. Game logic is a state machine:
-
-```
-SETUP → PLAYING (melody playback) → LISTENING (user sings) → EVALUATED → (next or RESULTS)
-```
-
-**State management** is a plain object with direct DOM manipulation. No virtual DOM.
-
-**Key internal functions:**
-
-- `buildScale(root)` — Build major scale from root note using interval formula [0,2,4,5,7,9,11,12].
-- `generateMelody()` — Create melody by walking through the scale with random steps bounded by difficulty. Uses adaptive selection for starting note.
-- `playMelodySequence()` — Play melody with sequential note box highlighting via async/await + delay.
-- `beginListening()` — Start listening phase, activate first note box, begin timeout.
-- `onPitch(freq, noteInfo)` — Pitch detection callback. Maintains stability buffer, triggers lockNote when stable.
-- `lockNote(idx, pitchData)` — Record detected note, update UI, start post-lock cooldown.
-- `evaluate()` — Compare all sung notes to targets, calculate score, check progression, record with ai.js.
-- `checkProgression()` — Track consecutive perfects, unlock next melody length at threshold.
-- `showResults()` — Calculate final score, save to leaderboard, request AI feedback.
-
-## Rhythm — Rhythm Training Game
-
-### Game Modes
-
-1. **Practice Mode** — Clap along to the metronome with visual feedback. No scoring pressure. Current streak and accuracy displayed but not saved. Stop anytime.
-2. **Test Mode** — Run for 8 or 16 measures. Tracks accuracy, streak, and score. Results saved to leaderboard.
-
-### Difficulty Levels
-
-| Level  | Tolerance Window |
-|--------|-----------------|
-| Easy   | ±100ms          |
-| Medium | ±50ms           |
-| Hard   | ±25ms           |
-
-### Features
-
-- **EKG-style visual metronome** — Canvas-based scrolling waveform with beat spikes. Downbeats (beat 1) are taller and use the primary accent color. A "NOW" line shows where the current moment is. Clap markers (green triangles for hits, red for misses) are overlaid in real-time.
-- **Beat indicator light** — Large circle that flashes green on successful on-beat claps and red on off-beat claps or missed beats.
-- **Clap detection via microphone** — Uses Web Audio API `AnalyserNode` for RMS-based onset detection. Monitors amplitude, triggers on threshold crossing with cooldown to prevent double-triggers.
-- **Keyboard input** — Spacebar acts as an alternative to clapping (for environments without mic access).
-- **Tap-in tempo setting** — "Tap Tempo" button calculates BPM from the average interval of the last 4 taps.
-- **Configurable time signature** — Numerator (1–12) and denominator (2, 4, 8, 16).
-- **BPM control** — Slider (40–200 BPM) with number input for precise entry.
-- **Count-in** — One measure of metronome clicks before scoring begins.
-- **Metronome audio** — Web Audio API `OscillatorNode`. Beat 1 at 1000 Hz, other beats at 800 Hz. Short sine wave envelope.
-- **Leaderboard panel** — Shows top scores via `shared/progress.js`. Game identifier: `'rhythm'`.
-- **Streak tracking** — Current streak and best streak. Bonus points for streaks ≥ 5.
-
-### rhythm.js Structure
-
-The game logic is a state machine:
-
-```
-SETUP → COUNT_IN → PLAYING → (RESULTS if test mode)
-```
-
-**State management** is a plain object with direct DOM manipulation via `getElementById`. No virtual DOM.
-
-**Key internal functions:**
-
-- `handleStart()` — Initialize audio, read settings, count-in, then start game loop.
-- `startMetronome()` — Scheduled click playback using `setTimeout`, synchronized to `performance.now()`.
-- `precomputeBeatTimes()` — Generate array of expected beat timestamps from start time and BPM.
-- `startOnsetDetection()` — Request mic, run RMS amplitude monitoring via `requestAnimationFrame`.
-- `registerClap(time)` — Compare clap timestamp to nearest expected beat. Score hit or miss.
-- `checkMissedBeat(beatIdx)` — Mark beats with no matching clap as missed, break streak.
-- `drawEKG()` — Canvas render: scrolling baseline, beat spikes, clap markers, missed-beat markers.
-- `handleTapIn()` — Calculate BPM from tap intervals, update tempo controls.
-- `showResults()` — Calculate final score/accuracy, save to leaderboard, show results screen.
-
-### Onset Detection Algorithm
-
-```
-1. getUserMedia → MediaStreamSource → AnalyserNode (fftSize 2048)
-2. Each animation frame: getFloatTimeDomainData → compute RMS
-3. When RMS crosses ONSET_THRESHOLD from below AND cooldown elapsed → onset
-4. Record performance.now() - LATENCY_COMPENSATION_MS
-5. Find nearest expected beat timestamp
-6. If |onset - beat| ≤ tolerance → hit, else miss
-```
-
-**Configurable constants** (top of rhythm.js):
-- `ONSET_THRESHOLD` (0.05) — RMS level for clap detection
-- `ONSET_COOLDOWN_MS` (200) — Minimum ms between detected onsets
-- `TOLERANCE` — Per difficulty: easy 100ms, medium 50ms, hard 25ms
-- `LATENCY_COMPENSATION_MS` (0) — Audio input latency offset
-
-## Strumming — Guitar Strumming Pattern Game
-
-### Overview
-
-Play along to strumming patterns on guitar. The app displays a scrolling timeline of the target pattern and uses microphone onset detection to evaluate the user's timing accuracy. Patterns are defined as eighth-note grids (8 slots per measure of 4/4 time).
-
-### File Structure
-
-- `strumming/index.html` — Game page with inline `<style>` and `<script type="module">`.
-- `strumming/patterns.js` — Pattern data definitions and custom pattern localStorage API.
-- `strumming/detection.js` — Onset detection module (transient/attack with hard lockout). Direction classification code is present but disabled.
-- `strumming/calibration.js` — Strum direction calibration flow and spectral helpers. Kept for future use but not imported by the game or detector pages.
-
-### Game Modes
-
-1. **Practice Mode** — Pattern loops continuously. No scoring. Real-time feedback on every strum. "Slow Down" button drops BPM by 10. Summary after each loop. Pause/change tempo/switch patterns anytime.
-2. **Test Mode** — Play for 4 measures. Scoring: perfect (±10ms) = 3 pts, within tolerance = 2 pts, miss = 0 pts. Streak tracking with bonus points at 5+. Results screen with accuracy %, timing histogram, and leaderboard.
-
-### Difficulty Levels
-
-| Level  | Tolerance | Lookahead        | Metronome          |
-|--------|-----------|------------------|--------------------|
-| Easy   | ±100ms    | 2 measures ahead | Audible + visual   |
-| Medium | ±60ms     | 1 measure ahead  | Audible + visual   |
-| Hard   | ±30ms     | Current beat     | Visual only (optional audible toggle) |
-
-### Built-In Patterns
-
-| Pattern               | Grid               | Suggested BPM |
-|-----------------------|--------------------|---------------|
-| Basic 4/4 Downstrokes | D - D - D - D -    | 60–100        |
-| Eighth Notes          | D U D U D U D U    | 50–90         |
-| Universal Strum       | D - D U - U D U    | 70–120        |
-| Rock Strum            | D - D U D - D U    | 80–130        |
-| Reggae Offbeat        | - U - U - U - U    | 60–100        |
-
-### patterns.js
-
-Exports pattern data and custom pattern CRUD.
-
-**Data model** (`StrumPattern`):
-- `id` — Unique identifier string.
-- `name` — Display name.
-- `description` — Brief UI description.
-- `grid` — 8-element array of `'D'`, `'U'`, or `'-'`.
-- `suggestedBpmRange` — `[min, max]` BPM range.
-- `tips` — Playing tips string.
-- `builtIn` — `true` for starter patterns, `false` for custom.
-
-**Key exports:**
-- `BUILT_IN_PATTERNS` — Array of 5 starter patterns.
-- `getAllPatterns()` — Built-in + custom patterns.
-- `getPatternById(id)` — Find pattern by id.
-- `getCustomPatterns()` / `saveCustomPattern(pattern)` / `deleteCustomPattern(id)` — Custom pattern localStorage CRUD.
-- `gridToString(grid)` — Format grid for display.
-
-**Storage:** `mtt_strumming_custom_patterns` — JSON array in localStorage.
-
-### detection.js
-
-Onset detection for guitar strums using Web Audio API. The module also contains direction classification code (`classifyDirection()`) which is currently disabled — planned for future improvement once accuracy is more reliable.
-
-**Onset algorithm:** Transient detection with envelope tracking, sustain gate, and hard lockout. A smoothed RMS envelope (slow-decay EMA, alpha=0.005) tracks the sustained energy level continuously. An onset fires when ALL three conditions are met: (1) instantaneous RMS exceeds the envelope by `TRANSIENT_RATIO` (1.5×), (2) RMS exceeds `ABS_MIN_RMS` (0.05), and (3) RMS increased by at least 30% from the previous animation frame (`ATTACK_VELOCITY_RATIO` = 1.3). Condition 3 is the sustain gate — real strum attacks cause a noticeable amplitude jump within one frame (~16ms), while sustained string vibrations and resonance fluctuations change gradually over many frames and fail this check. Audio is read every frame (including during lockout) to keep the envelope current. `prevFrameRMS` is reset to 0 during lockout so the first post-lockout frame falls back to the absolute floor check. After each onset, a hard lockout prevents re-triggering for `lockoutMs` (tempo-adaptive, max 400ms).
-
-**Direction classification (disabled):** The `classifyDirection()` function and its spectral imports from `calibration.js` are kept in the file but not called during detection. Two spectral features (spectral centroid and low/high energy ratio) can classify strum direction when re-enabled. See the function's JSDoc for re-enablement instructions.
-
-**Key exports:**
-- `startDetection(audioCtx, onOnset, bpm?)` — Start mic, return `Promise<boolean>` (true if mic granted). `bpm` sets the initial lockout duration. Callback signature: `onOnset(time)`.
-- `stopDetection()` — Stop mic and cleanup.
-- `isDetecting()` — Check if running.
-- `setDetectionBpm(bpm)` — Update lockout duration for a new tempo. Call when BPM changes during gameplay.
-- `setLatencyCompensation(ms)` — Set audio latency compensation in ms and persist to localStorage (`mtt_strumming_latency_ms`).
-- `getLatencyCompensation()` — Get current latency compensation value in ms.
-
-**Lockout strategy:** After any detected onset, no new onsets fire for `lockoutMs` milliseconds. Audio IS still read during lockout to keep the RMS envelope up to date — only onset firing is suppressed. Lockout is computed dynamically as `Math.min(DEFAULT_LOCKOUT_MS, eighthNoteMs * 0.7)` so it scales with tempo.
-
-**Constants (tunable):**
-- `ABS_MIN_RMS` (0.05) — Absolute minimum RMS floor; prevents silence from triggering.
-- `TRANSIENT_RATIO` (1.5) — Instantaneous RMS must exceed envelope by this factor for onset.
-- `ENVELOPE_ALPHA` (0.005) — EMA smoothing factor for the RMS envelope. Small = slow decay.
-- `ATTACK_VELOCITY_RATIO` (1.3) — Current frame RMS must be at least this multiple of previous frame RMS. A 30% increase is indicative of a real attack while being achievable for typical mics.
-- `DEFAULT_LOCKOUT_MS` (400) — Maximum lockout duration. Actual lockout is `min(400, eighthNoteMs * 0.7)`.
-- `latencyCompensationMs` — Manual timing offset in ms. Loaded from localStorage on module init (`mtt_strumming_latency_ms`), updated via `setLatencyCompensation()`. Defaults to 0. Old auto-detected values >100ms are cleared on load. Set by the "Timing Offset" slider in the strumming game setup screen (range: −100 to +100ms).
-
-### calibration.js
-
-**Status: Kept for future use.** Not imported by `strumming/index.html` or `detector/index.html`. Only imported by `detection.js` for the disabled `classifyDirection()` function.
-
-Guided calibration flow for strum direction detection. Records spectral signatures of down and up strums to compute per-user thresholds. Will be re-integrated when direction detection accuracy improves.
-
-**Key exports:**
-- `CALIBRATION_RMS_THRESHOLD` → `number` (0.12)
-- `getCalibrationData()` → `CalibrationData | null`
-- `hasCalibration()` → `boolean`
-- `clearCalibration()` → `void`
-- `runCalibration(audioCtx, analyser, callbacks, signal?)` → `Promise<CalibrationData | null>`
-- `computeSpectralCentroid(freqBuffer, sampleRate, fftSize)` → `number`
-- `computeLowHighRatio(freqBuffer, sampleRate, fftSize, cutoffHz)` → `number`
-
-**Storage:** `mtt_strumming_calibration` — JSON object in localStorage.
-
-### strumming/index.html Structure
-
-Single HTML file with inline `<style>` and `<script type="module">`. Game logic is a state machine:
-
-```
-SETUP → COUNT_IN → PLAYING → (loops in practice / RESULTS in test)
-```
-
-**State management** is a plain object with direct DOM manipulation. No virtual DOM.
-
-**Visual display:**
-- **Scrolling timeline** (canvas) — Playhead fixed at ~35% from left. PATTERN row shows target D/U arrows as visual guidance. YOU row shows timing markers (diamonds) colored by timing accuracy: green (perfect/within tolerance), yellow (hit), red (extra/miss). Ghost/faded for missed expected strums.
-- **Timing indicator bar** — Horizontal bar below the timeline. Rolling average of last 8 strums. Dot drifts left = early, right = late, center = on beat. Color changes: green (accurate), yellow (slightly off), red (way off).
-- **Beat light** — Flashes on downbeats/beats.
-- **Connecting lines** — Dashed lines between matched target↔detected pairs.
-
-**Key internal functions:**
-- `buildExpectedStrums()` — Generate expected strum times from pattern grid and BPM.
-- `registerStrum(time)` — Match detected strum to nearest expected, score it.
-- `checkMissedStrums()` — Mark unmatched expected strums as missed.
-- `renderFrame()` — Canvas render loop: grid lines, arrows, strum markers, connecting lines.
-- `drawArrow(ctx, x, y, direction, color, isMiss)` — Draw D/U arrow with styling.
-- `drawHistogram()` — Post-game timing distribution histogram.
-- `startMetronome()` — Scheduled click playback via Web Audio API oscillator.
-- `startCountIn()` — 4-beat count-in before game starts.
-- `handleTimingOffset()` — Reads the timing offset slider value and calls `setLatencyCompensation()` to persist it.
-
-### Integration
-
-- **Game ID:** `'strumming'`
-- **Leaderboard:** `shared/progress.js` — `saveScore()` / `renderLeaderboard()`.
-- **Adaptive difficulty:** `shared/ai.js` — `recordAttempt()` per strum with pattern name as skill. `selectWeighted()` suggests pattern on setup. `recordSession()` + `getSessionFeedback()` for post-session AI tutor.
-- **Hub:** Card added to main `index.html`.
-
-### Direction Detection (Disabled)
-
-Direction detection code exists in `detection.js` (`classifyDirection()`) and `calibration.js` but is **currently disabled**. All difficulty modes score on timing only. The PATTERN row still shows D/U arrows as visual guidance for the student's hand movement, but the YOU row shows timing-only markers (diamonds).
-
-The direction classification approach uses two spectral features (spectral centroid and low/high energy ratio) and optional per-user calibration. It is planned for re-enablement once accuracy is more reliable. See `detection.js` classifyDirection JSDoc for re-enablement instructions.
-
-### Planned Future Additions
-
-- **Direction detection re-enablement** — Improve spectral direction classification accuracy and re-integrate into scoring. Code is preserved in `detection.js` and `calibration.js`.
-- **Custom pattern builder UI** — Let users create, edit, and share custom strumming patterns. Data model already supports this via `patterns.js`.
-- **Detector tuning tool** — Debug/calibration view showing raw RMS, spectral flux, and onset triggers in real-time.
-
-## Detector — Strumming Pattern Detector Tool
-
-### Overview
-
-A standalone analysis tool that records guitar strumming, automatically detects tempo, quantizes onsets to an eighth-note grid, and matches against the pattern library. Complements the strumming game by letting users discover what pattern they're playing. Strum directions are estimated using a heuristic (even slots = D, odd slots = U).
-
-### File Structure
-
-- `detector/index.html` — Single HTML file with inline `<style>` and `<script type="module">`. Same architecture as other games.
-
-### Three Screens (hidden attribute toggling)
-
-1. **Setup Screen** — Instructions, "Start Recording" button.
-2. **Recording Screen** — Pulsing red indicator, elapsed timer, live strum count, estimated BPM (after 4+ strums), estimated measures, RMS level meter, "Stop Recording" button.
-3. **Results Screen** — Detected pattern grid, stats (BPM, strums, measures, consistency), BPM adjustment slider (re-quantizes on change), top 3 pattern matches with similarity %, custom pattern save (when no match >= 70%), optional AI feedback, action buttons.
-
-### CSS Prefix: `det-`
-
-### JS Architecture
-
-**State object:** `screen`, `audioCtx`, `isRecording`, `recordStartTime`, `rawOnsets[]`, `detectedBpm`, `userBpm`, `detectedGrid[]`, `patternMatches[]`, `timingConsistency`, etc.
-
-**Recording flow:**
-1. Init AudioContext, call `startDetection(audioCtx, onOnset, 0)` with BPM=0 (default lockout).
-2. Each onset callback: push `{time}` to `rawOnsets[]`.
-3. After 4+ onsets: estimate BPM from median IOI, call `setDetectionBpm()` to adapt lockout.
-4. On stop: call `stopDetection()`, run analysis pipeline.
-
-### Tempo Detection Algorithm
-
-1. Compute inter-onset intervals (IOIs).
-2. Build histogram (20ms bins, 100–1500ms range).
-3. Find dominant cluster (peak bin ± 30ms).
-4. Check for secondary cluster at 2× or 0.5× to distinguish eighth vs quarter note.
-5. BPM = 60000 / (eighthNoteMs × 2), clamped to [30, 200].
-6. Consistency = 100 − (meanDeviation / eighthNoteMs × 100).
-
-### Quantization Algorithm
-
-1. First onset = phase reference (measure start).
-2. Map each onset to nearest eighth-note slot: `slot = Math.round((time - start) / eighthNoteMs)`.
-3. Build per-measure grids (8 slots each).
-4. Consensus pattern = mode of each slot across all measures.
-5. Assign directions using heuristic: even slots → D, odd slots → U.
-
-### Pattern Matching
-
-Weighted slot comparison against `getAllPatterns()`:
-- Same strum type (D=D or U=U): 3 pts
-- Both strums, different type: 1.5 pts
-- Both rest: 1 pt
-- Strum vs rest: 0 pts
-- Similarity = score / maxScore × 100%
-
-Shows top 3 matches sorted by similarity. Custom pattern save shown when best match < 70%.
-
-### "Try This Pattern" Link
-
-Navigates to `../strumming/index.html?pattern=<id>`. The strumming game reads the `?pattern` URL parameter in `init()` to pre-select the pattern dropdown.
-
-### Edge Cases
-
-- < 4 strums: friendly error with "Try Again" button.
-- Mic denied: alert message suggesting allowing access.
-- Low consistency (< 30%): warning note, still displays results.
-- Directions always estimated via even=D/odd=U heuristic (direction detection disabled).
-
-### Integration
-
-- **Reuses** `strumming/detection.js` (onset detection), `strumming/patterns.js` (pattern data + `saveCustomPattern()`), `shared/ai.js` (optional AI feedback).
-- **Hub page:** Card in the "Tools" section of `index.html` with teal left-border accent (`.tool-card`).
-
-## Conventions
-
-- **File naming:** lowercase, hyphens for multi-word (`pitch-detection.js` if needed).
-- **Module pattern:** Every `.js` file is an ES6 module. No global variables. Import/export only.
-- **CSS scoping:** Game-specific styles in game directories. Shared styles use `.mtt-` prefix (Music Theory Trainer). Game-specific classes use game prefix (`.harmony-`, `.rhythm-`).
-- **Error handling:** Audio operations wrapped in try/catch. Mic access failures show friendly messages. localStorage failures fall back gracefully (scores just don't persist).
-- **Accessibility:** Semantic HTML, ARIA labels on interactive elements, keyboard navigation, sufficient color contrast (WCAG AA minimum), `prefers-reduced-motion` respected for animations.
-- **No minification.** Code is readable as-is. This is an educational project.
-
-## Running Locally
-
-```bash
-# Any static server works. Examples:
-python3 -m http.server 8000
-npx serve .
-```
-
-Then open `http://localhost:8000` in a browser.
-
-## Testing Notes
-
-- Audio playback requires a user gesture (click/tap) to start — browsers block autoplay.
-- Pitch detection requires HTTPS or localhost (mic access is restricted on insecure origins).
-- localStorage is available in all modern browsers but may be disabled in private/incognito mode.
-- Tested target: Chrome 90+, Firefox 88+, Safari 14+, Edge 90+.
+Records guitar strumming, auto-detects tempo via IOI histogram, quantizes onsets to eighth-note grid, matches against pattern library (weighted slot comparison, top 3 results). Three screens: Setup → Recording → Results. "Try This Pattern" links to `../strumming/index.html?pattern=<id>`. Reuses `strumming/detection.js` and `strumming/patterns.js`. Hub page card in "Tools" section (`.tool-card`). CSS prefix: `det-`.
 
 ## Skratch Studio — Visual Coding + Music Creation
 
 ### Overview
 
-A Blockly-based creative coding environment where kids build visual art and music using drag-and-drop blocks. The workspace generates real JavaScript — visuals use Canvas 2D API (p5.js-style), music uses Tone.js. Both run simultaneously. Built in three parts:
-
-- **Part A:** Blockly workspace, visual blocks, canvas drawing API, sandbox execution.
-- **Part B:** Audio bridge (Tone.js synth + mic pitch detection), piano keyboard, sound data blocks.
-- **Part C:** Music creation mode — drum/bass/melody/chord/song blocks, MusicEngine (Tone.Transport), music starters.
-
-### File Structure
-
-- `skratch-studio/index.html` — Studio page. Loads Blockly (CDN), `@blockly/field-colour` plugin, Tone.js (CDN). Layout: left panel (Blockly workspace), right panel (canvas + controls + code preview).
-- `skratch-studio/studio.js` — Main entry point. Registers all blocks/generators, creates workspace, wires sandbox + MusicEngine + AudioBridge + Piano. Manages Play/Stop (both canvas animation AND Tone.Transport). Contains all starter program definitions.
-- `skratch-studio/studio.css` — Dark theme styles. 60/40 flex layout, beat indicator, volume control, responsive.
-- `skratch-studio/blocks.js` — Visual Blockly block definitions (Part A).
-- `skratch-studio/generators.js` — Visual JS code generators (Part A).
-- `skratch-studio/drawing-api.js` — `DrawingAPI` class: p5.js-compatible Canvas 2D wrapper.
-- `skratch-studio/sandbox.js` — `Sandbox` class: compiles generated code via `new Function()`, runs in `requestAnimationFrame` loop.
-- `skratch-studio/audio-bridge.js` — `AudioBridge` class: Tone.Synth for piano, mic pitch detection via `shared/audio.js`.
-- `skratch-studio/piano.js` — `Piano` class: one-octave clickable keyboard (C4–B4).
-- `skratch-studio/music-blocks.js` — Music Blockly block definitions (Part C).
-- `skratch-studio/music-generators.js` — Music JS code generators (Part C).
-- `skratch-studio/music-engine.js` — `MusicEngine` class: Tone.Transport wrapper with instrument pooling (Part C).
+Blockly-based creative coding environment. Kids build visual art and music with drag-and-drop blocks. Generates real JavaScript — visuals use Canvas 2D (p5.js-style), music uses Tone.js. Both run simultaneously.
 
 ### Block Categories
 
@@ -698,9 +177,8 @@ A Blockly-based creative coding environment where kids build visual art and musi
 
 ### MusicEngine (music-engine.js)
 
-Wraps `Tone.Transport` for scheduling music events. Provides instrument pooling — instruments are created once and reused.
+Wraps `Tone.Transport` for scheduling. Instruments created once and reused:
 
-**Instruments:**
 | Name | Tone.js Type | Description |
 |------|-------------|-------------|
 | kick | MembraneSynth | Low-frequency membrane hit |
@@ -710,50 +188,44 @@ Wraps `Tone.Transport` for scheduling music events. Provides instrument pooling 
 | melody | Synth | Triangle wave lead |
 | chords | PolySynth | Polyphonic (up to 6 voices) for triads |
 
-All instruments route through a shared `Tone.Volume` node for master volume control.
+All route through shared `Tone.Volume` node. Key methods: `ensureTone()`, `setBpm(bpm)`, `setVolume(db)`, `scheduleKick/Snare/Hihat/Bass/Melody/Chord(...)`, `start()`, `stop()`, `onBeat(callback)`, `startBeatLoop()`, `destroy()`.
 
-**Key methods:**
-- `ensureTone()` — Calls `Tone.start()` (must happen on user gesture), creates instruments.
-- `setBpm(bpm)` / `setVolume(db)` — Control tempo and volume.
-- `scheduleKick/Snare/Hihat/Bass/Melody/Chord(...)` — Schedule events on `Tone.Transport`.
-- `start()` / `stop()` — Start/stop transport. Stop also cancels all scheduled events.
-- `onBeat(callback)` / `startBeatLoop()` — Drive the visual beat indicator via `Tone.Draw`.
-- `destroy()` — Dispose all instruments and cleanup.
+Music generators output clean Tone.js code (e.g., `kick.triggerAttackRelease('C1', '8n', '0:0:0')`). Chord definitions: Major [0,4,7], Minor [0,3,7], Diminished [0,3,6]. Drum presets: Rock, Disco, Hip Hop, Four on Floor. Bass presets: Root Notes, Walking Bass, Octave Bounce, Funky.
 
-### Music Code Generation (music-generators.js)
+### Execution Architecture
 
-Generators output **clean, readable Tone.js code** — not engine method calls. Example output:
+**Play:** `Tone.start()` → generated code runs in visual `Sandbox` (rAF loop) AND in separate `new Function()` context where instrument names resolve to proxy objects forwarding to `MusicEngine.schedule*()`. Visual functions are no-ops in music context. Both run simultaneously.
 
-```javascript
-// rock drum pattern
-kick.triggerAttackRelease('C1', '8n', '0:0:0');
-snare.triggerAttackRelease('8n', '0:1:0');
-hihat.triggerAttackRelease('C4', '32n', '0:0:2');
-bass.triggerAttackRelease('C2', '4n', '0:0:0');
-melody.triggerAttackRelease('E4', '4n', '0:0:0');
-chords.triggerAttackRelease(['C4', 'E4', 'G4'], '2n', '0:0:0');
-```
+**Stop:** `Sandbox.stop()` + `MusicEngine.stop()`.
 
-**Chord definitions** match the chord identification game (`chords/index.html`):
-- Major = root + 4 semitones + 7 semitones (e.g., C Major = C4, E4, G4)
-- Minor = root + 3 semitones + 7 semitones
-- Diminished = root + 3 semitones + 6 semitones
+**Loop mode:** When Loop checkbox is checked, `Tone.Transport.loop` is enabled. Workspace changes during playback are applied at the next loop boundary (live editing). Visual animation restarts on each loop.
 
-**Drum pattern presets:** Rock, Disco, Hip Hop, Four on Floor.
-**Bass pattern presets:** Root Notes, Walking Bass, Octave Bounce, Funky.
+### AudioBridge (audio-bridge.js)
 
-### Music Execution Architecture
+Tone.js PolySynth (8 voices) for keyboard playback + mic pitch detection via `shared/audio.js`.
 
-When Play is pressed:
-1. `Tone.start()` is called (user gesture requirement).
-2. Generated code is passed to the visual `Sandbox` for canvas animation.
-3. The same code is executed in a separate `new Function()` context where instrument names (`kick`, `snare`, etc.) resolve to proxy objects that forward `.triggerAttackRelease()` calls to `MusicEngine.schedule*()` methods.
-4. Visual function names (`circle`, `fill`, etc.) are bound to no-ops in the music execution context to avoid errors on mixed visual+music code.
-5. `Tone.Transport.start()` begins playback of all scheduled events.
-6. `Sandbox.startLoop()` begins the `requestAnimationFrame` visual loop.
-7. Both run simultaneously — music via Tone.Transport, visuals via rAF.
+**Sound presets:** Piano (triangle wave), Organ (B3-style: fatsine + distortion + tremolo), Synth (fatsawtooth + lowpass filter). Switched via `setSoundType(type)`.
 
-When Stop is pressed: both `Sandbox.stop()` and `MusicEngine.stop()` are called.
+**Sustain pedal:** `sustainOn()`/`sustainOff()` methods. Notes released while sustain is on are held until sustain is released. Tracks `_activeNotes` (keys held) and `_sustainedNotes` (released while sustained).
+
+Key methods: `playNote(noteName)` (one-shot), `noteOn(noteName)`/`noteOff(noteName)` (keyboard-style), `setSoundType(type)`, `sustainOn()`/`sustainOff()`, `releaseAll()`, `startMic()`/`stopMic()`.
+
+### Piano (piano.js)
+
+Two-octave clickable keyboard (G3–G5, 15 white + 10 black keys). Supports mouse/touch and computer keyboard input.
+
+**Keyboard mapping:**
+- A-row (white): A=G3, S=A3, D=B3, F=C4, G=D4, H=E4, J=F4, K=G4, L=A4
+- Z-row (sharps): Z=G#3, X=A#3, C=C#4, V=D#4, B=F#4, N=G#4, M=A#4
+- Q-row (white): Q=B4, W=C5, E=D5, R=E5, T=F5, Y=G5
+- Number row (sharps): 2=C#5, 3=D#5, 5=F#5
+- Spacebar: sustain pedal (hold to sustain)
+
+Constructor: `new Piano(container, { onNoteOn, onNoteOff, onSustainChange })`. Keyboard events ignore inputs, textareas, and Blockly (`#blocklyDiv`).
+
+### UI Controls
+
+Play/Stop, Loop toggle, BPM slider (60–180), Volume slider (0–100%), Beat indicator, Mic toggle, Sound selector (Piano/Organ/Synth), Piano keyboard with sustain indicator, Code preview (collapsible), Starter dropdown (Visual/Music), Clear All button (with confirm dialog).
 
 ### Starter Programs
 
@@ -765,39 +237,50 @@ When Stop is pressed: both `Sandbox.stop()` and `MusicEngine.stop()` are called.
 | Sound Circles | Visual | Circles appear when notes are detected |
 | Note Garden | Visual | Different shapes for each note (C–B) |
 | Bounce | Visual | Trail effect with note-triggered rings |
-| First Beat | Music | Basic rock beat — kick/snare/hihat pattern |
+| First Beat | Music | Basic rock beat |
 | Bass Groove | Music | Rock drums + bass line |
-| My First Song | Music | Drums + bass + melody + two sections (verse/chorus) |
-| Beat Painter | Music+Visual | Hip-hop drums + visual blocks triggered by beat timers |
+| My First Song | Music | Drums + bass + melody + sections |
+| Beat Painter | Music+Visual | Hip-hop drums + beat-triggered visuals |
 | Blank Canvas | — | Empty workspace |
-
-### UI Controls
-
-- **Play/Stop** — Starts/stops both canvas animation and Tone.Transport.
-- **BPM slider** (60–180, default 120) — Controls both sandbox beat timers and Tone.Transport tempo.
-- **Volume slider** (0–100%, default 75%) — Controls MusicEngine master volume (maps to -40dB to 0dB).
-- **Beat indicator** — Circle that flashes purple on each quarter note beat via `Tone.Draw.schedule()`.
-- **Mic toggle** — Enables pitch detection, highlights piano keys.
-- **Piano keyboard** — Clickable one-octave keyboard for playing notes.
-- **Code preview** — Collapsible panel showing generated JavaScript.
-- **Starter dropdown** — Organized by Visual/Music optgroups.
 
 ### Workspace Persistence
 
-Workspace state is saved to `localStorage` key `skratch-studio-workspace` on every non-UI change. Loaded on page init. Falls back to "Circles" starter if no saved state.
+Saved to `localStorage` key `skratch-studio-workspace` on every non-UI change. Falls back to "Circles" starter if no saved state. Clear All button removes saved state.
 
-### Cleanup
+## Conventions
 
-All instruments are disposed on `beforeunload` via `MusicEngine.destroy()`, `AudioBridge.destroy()`, `Piano.destroy()`, and `Sandbox.destroy()`.
+- **File naming:** lowercase, hyphens for multi-word.
+- **Module pattern:** Every `.js` file is an ES6 module. No global variables. Import/export only.
+- **CSS scoping:** Shared styles use `.mtt-` prefix. Game-specific classes use game prefix (`.harmony-`, `.rhythm-`). Skratch Studio uses `.sk-` prefix for piano component.
+- **Error handling:** Audio operations wrapped in try/catch. Mic failures show friendly messages. localStorage failures degrade gracefully.
+- **Accessibility:** Semantic HTML, ARIA labels, keyboard navigation, WCAG AA color contrast, `prefers-reduced-motion` respected.
+- **No minification.** Code is readable as-is. Educational project.
+- **State machines:** All games use plain-object state machines with direct DOM manipulation. No virtual DOM.
+
+## Running Locally
+
+```bash
+# Any static server works:
+python3 -m http.server 8000
+npx serve .
+```
+
+Then open `http://localhost:8000` in a browser.
+
+## Testing Notes
+
+- Audio playback requires a user gesture (click/tap) — browsers block autoplay.
+- Pitch detection requires HTTPS or localhost (mic access restricted on insecure origins).
+- localStorage may be disabled in private/incognito mode.
+- Tested target: Chrome 90+, Firefox 88+, Safari 14+, Edge 90+.
 
 ## Skratch — Visual Effects Module (Planned)
 
-**Status: Not yet implemented.** The `feature/skratch-effects` branch exists for this work, but `shared/skratch/` has not been created yet.
-
-**Plan:** A shared visual effects module at `shared/skratch/` using raw Canvas 2D for particle effects. Intended to add visual feedback (sparks, bursts, trails) to game events like correct answers, streaks, and perfect scores across all games. No external dependencies — pure Canvas 2D API.
+**Status: Not yet implemented.** The `feature/skratch-effects` branch exists but `shared/skratch/` has not been created. Plan: Canvas 2D particle system for visual feedback (sparks, bursts, trails) on game events across all games.
 
 ## TODO
 
-- Experiment with themes — try different color palettes, dark/light mode toggle, kid-friendly themes.
+- Experiment with themes — different color palettes, dark/light mode toggle, kid-friendly themes.
 - Implement Skratch visual effects module (`shared/skratch/`) — Canvas 2D particle system for game feedback.
-- Skratch Studio enhancements: looping playback for music (Tone.Transport.loop), more drum/bass presets, record and export audio.
+- Skratch Studio enhancements: more drum/bass presets, record and export audio.
+- Strumming: re-enable direction detection, custom pattern builder UI, detector tuning tool.

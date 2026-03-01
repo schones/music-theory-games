@@ -60,6 +60,7 @@ export class Sandbox {
   // Hot-swap compiled function without stopping the rAF loop (used for live editing)
   recompile(code) {
     this.clearError();
+    this._trailMode = false;
     this._noteCallbacks = [];
     this._beatTimers = [];
     this._compile(code);

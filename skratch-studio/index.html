@@ -68,6 +68,7 @@
             </optgroup>
             <option value="blank">Blank Canvas</option>
           </select>
+          <button id="btnClearAll" class="btn btn--clear" aria-label="Clear all blocks">Clear All</button>
         </div>
         <!-- Audio controls: piano + mic + BPM -->
         <div class="audio-controls">
@@ -84,7 +85,15 @@
               <span id="volumeValue" class="bpm-control__value">75%</span>
             </div>
           </div>
-          <div id="pianoContainer" class="piano-container"></div>
+          <div class="piano-row">
+            <select id="soundSelect" class="sound-select" aria-label="Keyboard sound">
+              <option value="piano">Piano</option>
+              <option value="organ">Organ</option>
+              <option value="synth">Synth</option>
+            </select>
+            <div id="pianoContainer" class="piano-container"></div>
+            <span id="sustainIndicator" class="sustain-indicator" hidden>Sustain: ON</span>
+          </div>
         </div>
       </div>
 

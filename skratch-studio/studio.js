@@ -540,10 +540,37 @@ export function init() {
   // When AudioBridge fires note callbacks, forward to sandbox's registered callbacks
   audioBridge.onNotePlayed(() => sandbox.fireNoteCallbacks());
 
-  // Piano keyboard — clicking a key plays a note through the bridge
+  // Piano keyboard — noteOn/noteOff for proper sustain support
   const pianoContainer = document.getElementById('pianoContainer');
-  piano = new Piano(pianoContainer, (noteName) => {
-    audioBridge.playNote(noteName);
+  const sustainIndicator = document.getElementById('sustainIndicator');
+  piano = new Piano(pianoContainer, {
+    onNoteOn: (noteName) => audioBridge.noteOn(noteName),
+    onNoteOff: (noteName) => audioBridge.noteOff(noteName),
+    onSustainChange: (on) => {
+      if (on) {
+        audioBridge.sustainOn();
+        sustainIndicator.hidden = false;
+      } else {
+        audioBridge.sustainOff();
+        sustainIndicator.hidden = true;
+      }
+    },
+  });
+
+  // Sound selector
+  const soundSelect = document.getElementById('soundSelect');
+  soundSelect.addEventListener('change', () => {
+    audioBridge.setSoundType(soundSelect.value);
+  });
+
+  // Clear All button
+  document.getElementById('btnClearAll').addEventListener('click', () => {
+    if (!confirm('Are you sure? This will clear all blocks.')) return;
+    if (_isPlaying) handleStop();
+    workspace.clear();
+    drawCanvasGrid(document.getElementById('skratchCanvas'));
+    updateCodePreview();
+    localStorage.removeItem(STORAGE_KEY);
   });
 
   // Mic toggle
@@ -857,13 +884,15 @@ function executeMusicCode(code) {
 
 function scheduleMusicHighlight(blockId, time) {
   if (!blockId) return;
-  Tone.Transport.schedule((t) => {
+  const id = Tone.Transport.schedule((t) => {
     Tone.Draw.schedule(() => {
       if (_highlightEnabled) {
         workspace.highlightBlock(blockId);
       }
     }, t);
   }, time);
+  // Track so clearScheduledEvents() also clears stale highlights
+  musicEngine._scheduledIds.push(id);
 }
 
 function handleStop() {
