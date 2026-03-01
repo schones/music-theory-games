@@ -563,14 +563,18 @@ export function init() {
     audioBridge.setSoundType(soundSelect.value);
   });
 
-  // Clear All button
-  document.getElementById('btnClearAll').addEventListener('click', () => {
+  // Clear Blocks button — clears only the Blockly workspace
+  document.getElementById('btnClearBlocks').addEventListener('click', () => {
     if (!confirm('Are you sure? This will clear all blocks.')) return;
-    if (_isPlaying) handleStop();
     workspace.clear();
-    drawCanvasGrid(document.getElementById('skratchCanvas'));
     updateCodePreview();
     localStorage.removeItem(STORAGE_KEY);
+  });
+
+  // Clear Canvas button — resets canvas and stops audio/Transport
+  document.getElementById('btnClearCanvas').addEventListener('click', () => {
+    if (_isPlaying) handleStop();
+    drawCanvasGrid(document.getElementById('skratchCanvas'));
   });
 
   // Mic toggle
