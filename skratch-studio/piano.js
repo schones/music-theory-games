@@ -62,6 +62,7 @@ export class Piano {
     this._highlightedKey = null;
     this._pressedComputerKeys = new Set();
     this._mouseNote = null;
+    this._capsLockSustain = false;
 
     this._injectStyles();
     this._build();
@@ -239,12 +240,11 @@ export class Piano {
         return;
       }
 
-      // Sustain pedal (spacebar)
-      if (e.code === 'Space') {
+      // Sustain pedal — Caps Lock toggle
+      if (e.code === 'CapsLock') {
         e.preventDefault();
-        if (!e.repeat) {
-          this.onSustainChange(true);
-        }
+        this._capsLockSustain = !this._capsLockSustain;
+        this.onSustainChange(this._capsLockSustain);
         return;
       }
 
@@ -264,12 +264,6 @@ export class Piano {
     };
 
     this._onKeyUp = (e) => {
-      // Sustain pedal release
-      if (e.code === 'Space') {
-        this.onSustainChange(false);
-        return;
-      }
-
       const key = e.key.toLowerCase();
       const note = KEY_MAP[key];
       if (!note) return;

@@ -549,10 +549,12 @@ export function init() {
     onSustainChange: (on) => {
       if (on) {
         audioBridge.sustainOn();
-        sustainIndicator.hidden = false;
+        sustainIndicator.textContent = 'Sustain: ON';
+        sustainIndicator.classList.add('active');
       } else {
         audioBridge.sustainOff();
-        sustainIndicator.hidden = true;
+        sustainIndicator.textContent = 'Sustain: OFF';
+        sustainIndicator.classList.remove('active');
       }
     },
   });

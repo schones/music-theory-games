@@ -305,13 +305,18 @@
 
 .sustain-indicator {
   font-size: var(--font-size-xs);
-  color: #ffd93d;
+  color: #888;
   font-weight: var(--font-weight-bold);
   white-space: nowrap;
   align-self: center;
   padding: 2px 6px;
-  background: rgba(255, 217, 61, 0.15);
+  background: rgba(136, 136, 136, 0.1);
   border-radius: var(--radius-sm);
+  transition: color 0.15s, background 0.15s;
+}
+.sustain-indicator.active {
+  color: #a6e3a1;
+  background: rgba(166, 227, 161, 0.15);
 }
 
 .btn--clear {
