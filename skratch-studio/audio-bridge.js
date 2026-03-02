@@ -1,4 +1,11 @@
 // audio-bridge.js — Connects Tone.js and mic pitch detection to the Skratch Studio sandbox
+//
+// Voice architecture: Instead of Tone.PolySynth (which has voice-tracking issues
+// with fat oscillator types like fatsine/fatsawtooth), we manage individual
+// Tone.Synth instances per note. All voices connect to a shared output bus that
+// routes through the preset's effects chain. This guarantees sustain pedal works
+// for all instrument types — we simply don't call triggerRelease() while sustain
+// is on, and each voice's oscillator keeps running independently.
 
 import { startPitchDetection, stopPitchDetection, frequencyToNote } from '../shared/audio.js';
 
@@ -34,8 +41,10 @@ const SOUND_PRESETS = {
 
 export class AudioBridge {
   constructor() {
-    this.synth = null;
+    this._outputBus = null;
     this._effects = [];
+    this._voiceMap = new Map();   // noteName → Tone.Synth instance
+    this._voiceOptions = {};
     this._toneStarted = false;
     this._micActive = false;
     this._rafId = null;
@@ -69,27 +78,58 @@ export class AudioBridge {
   }
 
   _buildSynth() {
-    // Dispose old synth and effects
-    if (this.synth) {
-      try { this.synth.releaseAll(); } catch (_) {}
-      this.synth.dispose();
-    }
-    for (const fx of this._effects) fx.dispose();
-    this._effects = [];
+    // Dispose all existing voices, effects, and output bus
+    this._disposeAll();
 
     const preset = SOUND_PRESETS[this._soundType] || SOUND_PRESETS.piano;
+    this._voiceOptions = preset.options;
 
-    this.synth = new Tone.PolySynth(Tone.Synth, {
-      maxPolyphony: 8,
-      volume: -6,
-      ...preset.options,
-    });
+    // Shared output bus — all per-note voices connect here
+    this._outputBus = new Tone.Volume(-6);
 
     if (preset.buildEffects) {
       this._effects = preset.buildEffects();
-      this.synth.chain(...this._effects, Tone.Destination);
+      this._outputBus.chain(...this._effects, Tone.Destination);
     } else {
-      this.synth.toDestination();
+      this._outputBus.toDestination();
+    }
+  }
+
+  /** Create an individual Tone.Synth voice connected to the output bus. */
+  _createVoice() {
+    const synth = new Tone.Synth(this._voiceOptions);
+    synth.connect(this._outputBus);
+    return synth;
+  }
+
+  /** Release a voice by note name and schedule its disposal after the release phase. */
+  _releaseVoice(noteName) {
+    const voice = this._voiceMap.get(noteName);
+    if (!voice) return;
+    this._voiceMap.delete(noteName);
+    try { voice.triggerRelease(); } catch (_) {}
+    // Dispose after the release envelope completes (with generous margin)
+    const releaseMs = ((this._voiceOptions.envelope && this._voiceOptions.envelope.release) || 1) * 1000 + 500;
+    setTimeout(() => {
+      try { voice.disconnect(); voice.dispose(); } catch (_) {}
+    }, releaseMs);
+  }
+
+  /** Dispose all voices, effects, and output bus. */
+  _disposeAll() {
+    if (this._voiceMap) {
+      for (const [, voice] of this._voiceMap) {
+        try { voice.disconnect(); voice.dispose(); } catch (_) {}
+      }
+      this._voiceMap.clear();
+    }
+    for (const fx of this._effects) {
+      try { fx.dispose(); } catch (_) {}
+    }
+    this._effects = [];
+    if (this._outputBus) {
+      try { this._outputBus.dispose(); } catch (_) {}
+      this._outputBus = null;
     }
   }
 
@@ -104,7 +144,12 @@ export class AudioBridge {
 
   async playNote(noteName) {
     await this.ensureTone();
-    this.synth.triggerAttackRelease(noteName, '8n');
+    const voice = this._createVoice();
+    voice.triggerAttackRelease(noteName, '8n');
+    // Auto-dispose after note finishes
+    setTimeout(() => {
+      try { voice.disconnect(); voice.dispose(); } catch (_) {}
+    }, 2000);
 
     this.state.lastNotePlayed = noteName;
     this.state.noteIsPlaying = true;
@@ -124,7 +169,19 @@ export class AudioBridge {
 
     this._activeNotes.add(noteName);
     this._sustainedNotes.delete(noteName);
-    this.synth.triggerAttack(noteName);
+
+    // If a voice already exists for this note (e.g., sustained), release it first
+    if (this._voiceMap.has(noteName)) {
+      const old = this._voiceMap.get(noteName);
+      this._voiceMap.delete(noteName);
+      try { old.triggerRelease(); } catch (_) {}
+      setTimeout(() => { try { old.disconnect(); old.dispose(); } catch (_) {} }, 1000);
+    }
+
+    // Create a dedicated voice for this note
+    const voice = this._createVoice();
+    this._voiceMap.set(noteName, voice);
+    voice.triggerAttack(noteName);
 
     this.state.lastNotePlayed = noteName;
     this.state.noteIsPlaying = true;
@@ -133,13 +190,14 @@ export class AudioBridge {
   }
 
   noteOff(noteName) {
-    if (!this._toneStarted || !this.synth) return;
+    if (!this._toneStarted || !this._outputBus) return;
     this._activeNotes.delete(noteName);
 
     if (this._sustain) {
+      // Note's voice stays alive — just track it as sustained
       this._sustainedNotes.add(noteName);
     } else {
-      this.synth.triggerRelease(noteName);
+      this._releaseVoice(noteName);
     }
 
     if (this._activeNotes.size === 0 && this._sustainedNotes.size === 0) {
@@ -153,10 +211,11 @@ export class AudioBridge {
 
   sustainOff() {
     this._sustain = false;
-    if (this._sustainedNotes.size > 0 && this.synth) {
-      const notes = [...this._sustainedNotes];
+    if (this._sustainedNotes.size > 0) {
+      for (const note of this._sustainedNotes) {
+        this._releaseVoice(note);
+      }
       this._sustainedNotes.clear();
-      this.synth.triggerRelease(notes);
     }
     if (this._activeNotes.size === 0) {
       this.state.noteIsPlaying = false;
@@ -167,7 +226,13 @@ export class AudioBridge {
     this._activeNotes.clear();
     this._sustainedNotes.clear();
     this._sustain = false;
-    if (this.synth) this.synth.releaseAll();
+    if (this._voiceMap && this._voiceMap.size > 0) {
+      // Snapshot keys to avoid mutation during iteration
+      const notes = [...this._voiceMap.keys()];
+      for (const note of notes) {
+        this._releaseVoice(note);
+      }
+    }
     this.state.noteIsPlaying = false;
   }
 
@@ -231,12 +296,7 @@ export class AudioBridge {
     this.clearNoteCallbacks();
     this.releaseAll();
     clearTimeout(this._noteTimeout);
-    if (this.synth) {
-      this.synth.dispose();
-      this.synth = null;
-    }
-    for (const fx of this._effects) fx.dispose();
-    this._effects = [];
+    this._disposeAll();
     this._toneStarted = false;
   }
 }
