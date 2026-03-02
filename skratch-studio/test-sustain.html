@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sustain Pedal Test — All Instruments</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #1e1e2e; color: #cdd6f4; padding: 2rem; max-width: 800px; margin: 0 auto; }
+    h1 { color: #a29bfe; }
+    h2 { color: #89b4fa; margin-top: 2rem; }
+    .instrument-section { background: #181825; border-radius: 8px; padding: 1.5rem; margin: 1rem 0; }
+    button { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; margin: 4px; }
+    .btn-note-on { background: #a6e3a1; color: #1e1e2e; }
+    .btn-note-off { background: #f38ba8; color: #1e1e2e; }
+    .btn-sustain-on { background: #f9e2af; color: #1e1e2e; }
+    .btn-sustain-off { background: #fab387; color: #1e1e2e; }
+    .btn-release-all { background: #b4befe; color: #1e1e2e; }
+    .status { margin-top: 0.5rem; padding: 0.5rem; background: #11111b; border-radius: 4px; font-family: monospace; font-size: 13px; min-height: 20px; }
+    .log { margin-top: 1rem; padding: 1rem; background: #11111b; border-radius: 4px; font-family: monospace; font-size: 12px; max-height: 300px; overflow-y: auto; }
+    .log-entry { margin: 2px 0; }
+    .log-entry.pass { color: #a6e3a1; }
+    .log-entry.fail { color: #f38ba8; }
+    .log-entry.info { color: #89b4fa; }
+    .instructions { background: #313244; border-radius: 8px; padding: 1rem; margin: 1rem 0; line-height: 1.6; }
+    .instructions ol { padding-left: 1.5rem; }
+  </style>
+</head>
+<body>
+  <h1>Sustain Pedal Test</h1>
+
+  <div class="instructions">
+    <strong>How to test sustain for each instrument:</strong>
+    <ol>
+      <li>Click <strong>Sustain ON</strong> (simulates pressing spacebar)</li>
+      <li>Click <strong>Note On (C4)</strong> (simulates pressing a piano key)</li>
+      <li>Click <strong>Note Off (C4)</strong> (simulates releasing the piano key)</li>
+      <li><strong>Verify:</strong> The note should STILL be playing after Note Off!</li>
+      <li>Click <strong>Sustain OFF</strong> — now the note should fade out</li>
+    </ol>
+    <p>If the note cuts off at step 3, sustain is broken for that instrument.</p>
+  </div>
+
+  <div id="sections"></div>
+
+  <h2>Test Log</h2>
+  <div id="log" class="log"></div>
+
+  <script type="module">
+    import { AudioBridge } from './audio-bridge.js';
+
+    const INSTRUMENTS = ['piano', 'organ', 'synth'];
+    const logEl = document.getElementById('log');
+    const sectionsEl = document.getElementById('sections');
+
+    function log(msg, type = 'info') {
+      const entry = document.createElement('div');
+      entry.className = `log-entry ${type}`;
+      entry.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+      logEl.appendChild(entry);
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    // Create one AudioBridge instance (same as studio.js does)
+    const bridge = new AudioBridge();
+
+    function updateStatus(section) {
+      const statusEl = section.querySelector('.status');
+      statusEl.textContent =
+        `sustain: ${bridge._sustain ? 'ON' : 'OFF'} | ` +
+        `activeNotes: [${[...bridge._activeNotes].join(', ')}] | ` +
+        `sustainedNotes: [${[...bridge._sustainedNotes].join(', ')}] | ` +
+        `voices: ${bridge._voiceMap ? bridge._voiceMap.size : 'N/A'} | ` +
+        `noteIsPlaying: ${bridge.state.noteIsPlaying}`;
+    }
+
+    for (const type of INSTRUMENTS) {
+      const section = document.createElement('div');
+      section.className = 'instrument-section';
+      section.innerHTML = `
+        <h2>${type.charAt(0).toUpperCase() + type.slice(1)}</h2>
+        <div>
+          <button class="btn-sustain-on">Sustain ON</button>
+          <button class="btn-note-on">Note On (C4)</button>
+          <button class="btn-note-off">Note Off (C4)</button>
+          <button class="btn-sustain-off">Sustain OFF</button>
+          <button class="btn-release-all">Release All</button>
+        </div>
+        <div class="status">Click a button to start</div>
+      `;
+
+      section.querySelector('.btn-sustain-on').addEventListener('click', async () => {
+        await bridge.ensureTone();
+        bridge.setSoundType(type);
+        bridge.sustainOn();
+        log(`[${type}] Sustain ON`);
+        updateStatus(section);
+      });
+
+      section.querySelector('.btn-note-on').addEventListener('click', async () => {
+        await bridge.ensureTone();
+        bridge.setSoundType(type);
+        await bridge.noteOn('C4');
+        log(`[${type}] Note On: C4 — you should hear the note`);
+        updateStatus(section);
+      });
+
+      section.querySelector('.btn-note-off').addEventListener('click', () => {
+        bridge.noteOff('C4');
+        const sustained = bridge._sustainedNotes.has('C4');
+        const stillPlaying = bridge.state.noteIsPlaying;
+        if (bridge._sustain && sustained) {
+          log(`[${type}] Note Off: C4 — note is SUSTAINED (should still hear sound)`, 'pass');
+        } else if (!bridge._sustain) {
+          log(`[${type}] Note Off: C4 — sustain was off, note released normally`, 'info');
+        } else {
+          log(`[${type}] Note Off: C4 — WARNING: sustain is on but note not in sustained set!`, 'fail');
+        }
+        updateStatus(section);
+      });
+
+      section.querySelector('.btn-sustain-off').addEventListener('click', () => {
+        const hadSustained = bridge._sustainedNotes.size > 0;
+        bridge.sustainOff();
+        if (hadSustained) {
+          log(`[${type}] Sustain OFF — released ${hadSustained ? 'sustained' : 'no'} notes (sound should fade)`, 'pass');
+        } else {
+          log(`[${type}] Sustain OFF — no notes were sustained`, 'info');
+        }
+        updateStatus(section);
+      });
+
+      section.querySelector('.btn-release-all').addEventListener('click', () => {
+        bridge.releaseAll();
+        log(`[${type}] Release All — all notes stopped`);
+        updateStatus(section);
+      });
+
+      sectionsEl.appendChild(section);
+    }
+
+    // Also test the automated sequence
+    const autoSection = document.createElement('div');
+    autoSection.className = 'instrument-section';
+    autoSection.innerHTML = `
+      <h2>Automated Test (all instruments)</h2>
+      <p>Runs the sustain test sequence automatically on each instrument. Listen for each note to sustain for 2 seconds after "Note Off".</p>
+      <button id="btnAutoTest" class="btn-note-on" style="font-size: 16px; padding: 12px 24px;">Run Automated Test</button>
+    `;
+    sectionsEl.appendChild(autoSection);
+
+    document.getElementById('btnAutoTest').addEventListener('click', async () => {
+      const btn = document.getElementById('btnAutoTest');
+      btn.disabled = true;
+      btn.textContent = 'Testing...';
+
+      await bridge.ensureTone();
+
+      for (const type of INSTRUMENTS) {
+        log(`--- Automated test: ${type} ---`, 'info');
+
+        bridge.setSoundType(type);
+        log(`[${type}] Set instrument type`);
+
+        // Step 1: Sustain ON
+        bridge.sustainOn();
+        log(`[${type}] Sustain ON`);
+
+        // Step 2: Note On
+        await bridge.noteOn('C4');
+        log(`[${type}] Note On: C4 — playing...`);
+        await delay(1000);
+
+        // Step 3: Note Off (should sustain)
+        bridge.noteOff('C4');
+        const sustained = bridge._sustainedNotes.has('C4');
+        if (sustained) {
+          log(`[${type}] Note Off: C4 — note correctly moved to sustained set`, 'pass');
+        } else {
+          log(`[${type}] Note Off: C4 — FAIL: note NOT in sustained set!`, 'fail');
+        }
+
+        // Wait 2s — note should still be audible
+        log(`[${type}] Waiting 2s — note should still be audible...`);
+        await delay(2000);
+
+        // Step 4: Sustain OFF
+        bridge.sustainOff();
+        log(`[${type}] Sustain OFF — note should now fade out`);
+        await delay(1500);
+
+        bridge.releaseAll();
+        log(`[${type}] Cleanup complete`);
+        await delay(500);
+      }
+
+      log('=== All automated tests complete ===', 'pass');
+      btn.disabled = false;
+      btn.textContent = 'Run Automated Test';
+    });
+
+    function delay(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+  </script>
+</body>
+</html>
