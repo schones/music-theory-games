@@ -104,7 +104,13 @@ export function frequencyToNote(freq) {
 
   const midiFloat = 12 * Math.log2(freq / A4_FREQ) + A4_MIDI;
   const midi = Math.round(midiFloat);
-  const cents = Math.round((midiFloat - midi) * 100);
+  let cents = Math.round((midiFloat - midi) * 100);
+  
+  // Pedagogical Grace Window: For kids singing/playing, +/- 15 cents is "close enough" and perfectly in tune
+  if (Math.abs(cents) <= 15) {
+    cents = 0;
+  }
+  
   const noteIndex = ((midi % 12) + 12) % 12;
   const octave = Math.floor(midi / 12) - 1;
   const noteName = NOTE_NAMES[noteIndex];
@@ -210,28 +216,33 @@ export function playInterval(rootNote, intervalSemitones, mode = "melodic-up", n
     return;
   }
 
+  // Exact pitch calculation using Note -> Midi -> Traposition -> Frequency
+  // instead of relying on rounding note strings
   const rootFreq = noteToFrequency(rootNote);
-  const secondFreq = rootFreq * Math.pow(2, intervalSemitones / 12);
-  const secondNote = frequencyToNote(secondFreq);
-  const secondName = secondNote.fullName;
+  // Calculate root exact MIDI float
+  const rootMidiFloat = 12 * Math.log2(rootFreq / A4_FREQ) + A4_MIDI;
+  // Calculate exact interval MIDI float
+  const secondMidiFloat = rootMidiFloat + intervalSemitones;
+  // Calculate exact interval frequency
+  const secondFreq = A4_FREQ * Math.pow(2, (secondMidiFloat - A4_MIDI) / 12);
 
   const now = Tone.now();
 
   switch (mode) {
     case "harmonic":
-      synth.triggerAttackRelease(rootNote, noteDuration, now);
-      synth.triggerAttackRelease(secondName, noteDuration, now);
+      synth.triggerAttackRelease(rootFreq, noteDuration, now);
+      synth.triggerAttackRelease(secondFreq, noteDuration, now);
       break;
 
     case "melodic-down":
-      synth.triggerAttackRelease(secondName, noteDuration, now);
-      synth.triggerAttackRelease(rootNote, noteDuration, now + noteDuration + 0.15);
+      synth.triggerAttackRelease(secondFreq, noteDuration, now);
+      synth.triggerAttackRelease(rootFreq, noteDuration, now + noteDuration + 0.15);
       break;
 
     case "melodic-up":
     default:
-      synth.triggerAttackRelease(rootNote, noteDuration, now);
-      synth.triggerAttackRelease(secondName, noteDuration, now + noteDuration + 0.15);
+      synth.triggerAttackRelease(rootFreq, noteDuration, now);
+      synth.triggerAttackRelease(secondFreq, noteDuration, now + noteDuration + 0.15);
       break;
   }
 }
@@ -365,14 +376,10 @@ function autocorrelate(buffer, sampleRate) {
 
   if (maxPos === -1) return -1;
 
-  // Parabolic interpolation for sub-sample accuracy
-  const y1 = maxPos > 0 ? corr[maxPos - 1] : corr[maxPos];
-  const y2 = corr[maxPos];
-  const y3 = maxPos < len - 1 ? corr[maxPos + 1] : corr[maxPos];
-  const shift = (y3 - y1) / (2 * (2 * y2 - y1 - y3));
-  const refinedPos = maxPos + (isFinite(shift) ? shift : 0);
-
-  return sampleRate / refinedPos;
+  // Educational UI: Simplified pitch reporting without parabolic sub-sample accuracy.
+  // The +/- 15 grace window handles the "close enough" logic for kids.
+  // This reduces processing overhead slightly and avoids micro-fluctuations in UI.
+  return sampleRate / maxPos;
 }
 
 /* ---------------------------------------------------------- */

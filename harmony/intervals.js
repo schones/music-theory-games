@@ -311,10 +311,11 @@ function checkAnswer(selectedSemitones) {
   highlightAnswerButtons(state.currentQuestion.semitones, selectedSemitones);
   enableAnswerButtons(false);
 
-  // In test mode, auto-advance or show results
+  // In test mode, wait for user to hit next or auto-advance if it's the last question
   if (state.mode === "test") {
     if (state.questionIndex >= state.totalQuestions) {
-      setTimeout(() => endTest(), 1500);
+      els.btnNext.hidden = true; // explicitly hide
+      setTimeout(() => endTest(), 1500); // 1.5s delay on final question only
       return;
     }
   }

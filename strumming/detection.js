@@ -15,13 +15,8 @@
  * accuracy is more reliable.
  */
 
-// Direction classification helpers — kept for future use. classifyDirection()
-// below uses these but is not called during active detection.
-import {
-  getCalibrationData,
-  computeSpectralCentroid,
-  computeLowHighRatio,
-} from './calibration.js';
+// Direction classification logic has been removed as it was deemed
+// too complex and fragile for the educational scope of this app.
 
 /* ---------------------------------------------------------- */
 /*  Constants (tunable)                                       */
@@ -55,12 +50,7 @@ const DEFAULT_LOCKOUT_MS = 400;
 // RMS before allowing onset detection again.
 const SKIP_FRAMES_AFTER_LOCKOUT = 3;
 
-// Direction classification constants (currently unused — direction detection
-// is disabled but kept for future use)
-const LOW_HIGH_CUTOFF_HZ = 400;
-const DEFAULT_CENTROID_THRESHOLD = 750;
-const DEFAULT_RATIO_THRESHOLD = 2.0;
-const DIRECTION_CONFIDENCE_MIN = 0.3;
+// Removed direction classification constants
 
 /* ---------------------------------------------------------- */
 /*  Detector State                                            */
@@ -217,8 +207,10 @@ function loadLatencyCompensation() {
  */
 function computeLockout(bpm) {
   if (!bpm || bpm <= 0) return DEFAULT_LOCKOUT_MS;
-  const eighthNoteMs = (60000 / bpm) / 2;
-  return Math.min(DEFAULT_LOCKOUT_MS, eighthNoteMs * 0.7);
+  // A standard sixteenth note strum at `bpm` takes this long
+  const sixteenthNoteMs = (60000 / bpm) / 4;
+  // Lockout should be slightly shorter than the fastest expected strum (16th note)
+  return Math.min(DEFAULT_LOCKOUT_MS, sixteenthNoteMs * 0.8);
 }
 
 /* ---------------------------------------------------------- */
@@ -277,83 +269,7 @@ function detectLoop() {
   d.animFrameId = requestAnimationFrame(detectLoop);
 }
 
-/* ---------------------------------------------------------- */
-/*  Direction Classification                                   */
-/* ---------------------------------------------------------- */
 
-/**
- * Classify strum direction from the current spectral frame.
- *
- * NOTE: Currently unused — direction detection is disabled. Kept for future use.
- * To re-enable, call from detectLoop after reading frequency data with
- * analyser.getFloatFrequencyData(freqBuffer), and add freqBuffer + calibration
- * back to the detector state.
- *
- * Two features vote independently:
- *   1. Spectral centroid: below threshold → D, above → U
- *   2. Low/high energy ratio: above threshold (more low energy) → D, below → U
- *
- * When both agree, confidence is boosted. When they disagree, the feature with
- * higher individual confidence wins at reduced overall confidence.
- *
- * @param {object} d - Detector state (needs audioCtx, analyser, freqBuffer, calibration)
- * @returns {{ direction: string|null, confidence: number }}
- */
-function classifyDirection(d) { // eslint-disable-line no-unused-vars
-  const sampleRate = d.audioCtx.sampleRate;
-  const fftSize = d.analyser.fftSize;
-
-  const centroid = computeSpectralCentroid(d.freqBuffer, sampleRate, fftSize);
-  const ratio = computeLowHighRatio(d.freqBuffer, sampleRate, fftSize, LOW_HIGH_CUTOFF_HZ);
-
-  // Determine thresholds and spread from calibration or defaults
-  const cal = d.calibration;
-  const centroidThreshold = cal ? cal.centroidThreshold : DEFAULT_CENTROID_THRESHOLD;
-  const ratioThreshold = cal ? cal.ratioThreshold : DEFAULT_RATIO_THRESHOLD;
-
-  // Per-feature confidence: how far is the value from the threshold,
-  // scaled by the spread (calibration std or a fixed fallback).
-  const centroidSpread = cal
-    ? Math.max(1, (cal.downCentroidStd + cal.upCentroidStd) / 2)
-    : 100; // fallback spread in Hz
-
-  const centroidDist = centroid - centroidThreshold;
-  const centroidVote = centroidDist < 0 ? 'D' : 'U';
-  const centroidConf = Math.min(1, Math.abs(centroidDist) / (centroidSpread * 2));
-
-  const ratioSpread = cal
-    ? Math.max(0.01, Math.abs(cal.downLowHighRatio - cal.upLowHighRatio) / 2)
-    : 0.5; // fallback
-
-  const ratioDist = ratio - ratioThreshold;
-  const ratioVote = ratioDist > 0 ? 'D' : 'U'; // higher ratio = more bass = down
-  const ratioConf = Math.min(1, Math.abs(ratioDist) / (ratioSpread * 2));
-
-  let direction;
-  let confidence;
-
-  if (centroidVote === ratioVote) {
-    // Features agree — boost confidence
-    direction = centroidVote;
-    confidence = Math.min(1, (centroidConf + ratioConf) / 2 + 0.15);
-  } else {
-    // Features disagree — use the one with higher confidence at a penalty
-    if (centroidConf >= ratioConf) {
-      direction = centroidVote;
-      confidence = centroidConf * 0.6;
-    } else {
-      direction = ratioVote;
-      confidence = ratioConf * 0.6;
-    }
-  }
-
-  // Below minimum threshold → direction unknown
-  if (confidence < DIRECTION_CONFIDENCE_MIN) {
-    return { direction: null, confidence };
-  }
-
-  return { direction, confidence };
-}
 
 /* ---------------------------------------------------------- */
 /*  Signal Processing Helpers                                 */

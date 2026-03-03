@@ -78,10 +78,11 @@ const state = {
 
   // Beat tracking
   startTime: 0,
+  audioStartTime: 0, // audioCtx.currentTime when game starts
   beatIndex: 0,
   totalBeatsExpected: 0,
   measuresTarget: 0,
-  beatTimes: [],       // expected beat timestamps (performance.now())
+  beatTimes: [],       // expected beat timestamps in AudioContext time
   clapEvents: [],      // { time, beatIndex, delta, rating }
   missedBeats: [],
 
@@ -231,6 +232,9 @@ function showScreen(name) {
   Object.entries(screens).forEach(([key, el]) => {
     el.hidden = key !== name;
   });
+  if (name === "game" && state.canvas) {
+    resizeCanvas();
+  }
 }
 
 /* ---------------------------------------------------------- */
@@ -324,7 +328,6 @@ async function handleStart() {
   // Init canvas
   state.canvas = els.ekgCanvas;
   state.ctx = state.canvas.getContext("2d");
-  resizeCanvas();
 
   // Init audio
   try {
@@ -343,6 +346,7 @@ async function handleStart() {
   // Start the game loop
   state.playing = true;
   state.startTime = performance.now();
+  state.audioStartTime = state.audioCtx.currentTime;
   precomputeBeatTimes();
   startMetronome();
   startOnsetDetection();
@@ -443,7 +447,8 @@ function playClick(isDownbeat) {
 }
 
 function precomputeBeatTimes() {
-  const beatInterval = 60000 / state.bpm;
+  // Convert BPM to seconds per beat for Web Audio scheduling
+  const beatIntervalSec = 60 / state.bpm;
   state.beatTimes = [];
 
   const totalBeats = state.totalBeatsExpected > 0
@@ -451,39 +456,44 @@ function precomputeBeatTimes() {
     : 999; // Practice mode: generate a lot, extend as needed
 
   for (let i = 0; i < totalBeats; i++) {
-    state.beatTimes.push(state.startTime + i * beatInterval);
+    // Array of absolute AudioContext times
+    state.beatTimes.push(state.audioStartTime + i * beatIntervalSec);
   }
 }
 
 function startMetronome() {
-  const beatInterval = 60000 / state.bpm;
+  const LOOKAHEAD_MS = 25.0; // How frequently to call scheduling function (in milliseconds)
+  const SCHEDULE_AHEAD_TIME_SEC = 0.1; // How far ahead to schedule audio (in seconds)
 
   function tick() {
     if (!state.playing) return;
 
-    const now = performance.now();
-    const elapsed = now - state.startTime;
-    const expectedBeatIndex = Math.floor(elapsed / beatInterval);
+    // We use audio context time for perfect accuracy instead of performance.now()
+    const currentAudioTime = state.audioCtx.currentTime;
 
-    // Play click for any beats we haven't played yet
-    while (state.beatIndex <= expectedBeatIndex) {
+    // While there are expected beats that map to the upcoming schedule window
+    while (
+      state.beatIndex < state.beatTimes.length &&
+      state.beatTimes[state.beatIndex] < currentAudioTime + SCHEDULE_AHEAD_TIME_SEC
+    ) {
+      const beatTime = state.beatTimes[state.beatIndex];
       const isDownbeat = (state.beatIndex % state.beatsPerMeasure) === 0;
-      playClick(isDownbeat);
+
+      // Pass the exact scheduled time
+      playClickAtTime(isDownbeat, beatTime);
 
       // Check for missed beat from previous beat (if applicable)
+      // Done slightly after the fact so players have the full tolerance window to clap
       if (state.beatIndex > 0) {
         checkMissedBeat(state.beatIndex - 1);
       }
 
       state.beatIndex++;
       state.totalBeatsPlayed++;
-
-      // Update stats
       updateGameStats();
 
       // Check if test is complete
       if (state.mode === "test" && state.totalBeatsPlayed >= state.totalBeatsExpected) {
-        // Wait a moment for the last beat's clap, then stop
         setTimeout(() => {
           const tolerance = TOLERANCE[state.difficulty];
           checkMissedBeat(state.beatIndex - 1);
@@ -494,28 +504,52 @@ function startMetronome() {
       }
     }
 
-    // Schedule next tick close to the next beat
-    const nextBeatTime = state.startTime + state.beatIndex * beatInterval;
-    const delay = Math.max(1, nextBeatTime - performance.now() - 5);
-    state.metronomeTimerId = setTimeout(tick, delay);
+    state.metronomeTimerId = setTimeout(tick, LOOKAHEAD_MS);
   }
 
   tick();
 }
 
+function playClickAtTime(isDownbeat, time) {
+  if (!state.audioCtx) return;
+
+  const ctx = state.audioCtx;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+
+  osc.type = "sine";
+  osc.frequency.value = isDownbeat ? CLICK_FREQ_DOWNBEAT : CLICK_FREQ_BEAT;
+
+  gain.gain.setValueAtTime(CLICK_VOLUME, time);
+  gain.gain.exponentialRampToValueAtTime(0.001, time + CLICK_DURATION);
+
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+
+  osc.start(time);
+  osc.stop(time + CLICK_DURATION);
+}
+
 async function countIn() {
-  const beatInterval = 60000 / state.bpm;
+  const beatIntervalSec = 60 / state.bpm;
   const countInBeats = state.beatsPerMeasure;
+
+  const ctx = state.audioCtx;
+  const now = ctx.currentTime;
 
   for (let i = 0; i < countInBeats; i++) {
     const isDownbeat = i === 0;
-    playClick(isDownbeat);
+    const time = now + (i * beatIntervalSec);
+    playClickAtTime(isDownbeat, time);
 
-    // Flash the beat light to show the count-in
-    flashBeatLight("#a29bfe");
-
-    await sleep(beatInterval);
+    // Schedule the flash light as close as possible
+    setTimeout(() => {
+      flashBeatLight("#a29bfe");
+    }, (time - ctx.currentTime) * 1000);
   }
+
+  // Wait for the full count-in to finish
+  await sleep(beatIntervalSec * countInBeats * 1000);
 }
 
 function sleep(ms) {
@@ -562,7 +596,8 @@ async function startOnsetDetection() {
     if (rms > ONSET_THRESHOLD && state.prevRMS <= ONSET_THRESHOLD) {
       if (now - state.lastOnsetTime > ONSET_COOLDOWN_MS) {
         state.lastOnsetTime = now;
-        registerClap(now - LATENCY_COMPENSATION_MS);
+        // Use the AudioContext time for precise scoring, not performance.now()
+        registerClap(state.audioCtx.currentTime - (LATENCY_COMPENSATION_MS / 1000));
       }
     }
 
@@ -585,29 +620,22 @@ function stopMic() {
 /*  Clap Registration & Scoring                               */
 /* ---------------------------------------------------------- */
 
-function registerClap(clapTime) {
+function registerClap(clapAudioCtxTime) {
   if (!state.playing) return;
 
-  const tolerance = TOLERANCE[state.difficulty];
+  // We are now dealing with AudioContext time in seconds, so tolerance must be in seconds
+  const toleranceSec = TOLERANCE[state.difficulty] / 1000;
 
   // Find the nearest beat
   let nearestIndex = -1;
   let nearestDelta = Infinity;
 
-  for (let i = 0; i < state.beatTimes.length && i < state.beatIndex; i++) {
-    const delta = Math.abs(clapTime - state.beatTimes[i]);
+  // Search through all upcoming/recent beats to find the closest one
+  for (let i = 0; i < state.beatTimes.length; i++) {
+    const delta = Math.abs(clapAudioCtxTime - state.beatTimes[i]);
     if (delta < nearestDelta) {
       nearestDelta = delta;
       nearestIndex = i;
-    }
-  }
-
-  // Also check upcoming beat
-  if (state.beatIndex < state.beatTimes.length) {
-    const delta = Math.abs(clapTime - state.beatTimes[state.beatIndex]);
-    if (delta < nearestDelta) {
-      nearestDelta = delta;
-      nearestIndex = state.beatIndex;
     }
   }
 
@@ -617,10 +645,10 @@ function registerClap(clapTime) {
   const alreadyMatched = state.clapEvents.some((e) => e.beatIndex === nearestIndex);
   if (alreadyMatched) return;
 
-  const delta = clapTime - state.beatTimes[nearestIndex];
+  const delta = clapAudioCtxTime - state.beatTimes[nearestIndex];
   let rating;
 
-  if (nearestDelta <= tolerance) {
+  if (nearestDelta <= toleranceSec) {
     rating = "hit";
     state.correctCount++;
     state.streak++;
@@ -642,7 +670,7 @@ function registerClap(clapTime) {
   }
 
   state.clapEvents.push({
-    time: clapTime,
+    time: clapAudioCtxTime,
     beatIndex: nearestIndex,
     delta,
     rating,
@@ -726,7 +754,8 @@ function drawEKG() {
   const ctx = state.ctx;
   const w = canvas.width;
   const h = canvas.height;
-  const now = performance.now();
+
+  if (w === 0 || h === 0) return; // Wait for canvas to have size
 
   ctx.clearRect(0, 0, w, h);
 
@@ -771,15 +800,22 @@ function drawEKG() {
   const errorColor = getComputedStyle(document.documentElement).getPropertyValue("--color-error").trim() || "#d63031";
 
   const visibleWindow = w / pixelsPerMs;
-  const startTime = now - nowLineX / pixelsPerMs;
-  const endTime = now + (w - nowLineX) / pixelsPerMs;
+
+  // To sync visuals with the Web Audio API, we need a baseline conversion
+  // between performance.now() and audioCtx.currentTime.
+  const audioCtxCurrentTime = state.audioCtx.currentTime;
+
+  // Target time range in AudioContext time
+  const targetAudioTime = audioCtxCurrentTime - (nowLineX / pixelsPerMs) / 1000;
+  const startAudioTime = audioCtxCurrentTime - (nowLineX / pixelsPerMs) / 1000;
+  const endAudioTime = audioCtxCurrentTime + ((w - nowLineX) / pixelsPerMs) / 1000;
 
   // Draw beat spikes
   for (let i = 0; i < state.beatTimes.length; i++) {
-    const bt = state.beatTimes[i];
-    if (bt < startTime - beatInterval || bt > endTime + beatInterval) continue;
+    const bt = state.beatTimes[i]; // in audio seconds
+    if (bt < startAudioTime - (beatInterval / 1000) || bt > endAudioTime + (beatInterval / 1000)) continue;
 
-    const x = nowLineX + (bt - now) * pixelsPerMs;
+    const x = nowLineX + (bt - audioCtxCurrentTime) * 1000 * pixelsPerMs;
     const isDownbeat = (i % state.beatsPerMeasure) === 0;
     const spikeH = isDownbeat ? DOWNBEAT_SPIKE_HEIGHT : BEAT_SPIKE_HEIGHT;
 
@@ -814,7 +850,7 @@ function drawEKG() {
 
   // Draw clap markers
   for (const clap of state.clapEvents) {
-    const x = nowLineX + (clap.time - now) * pixelsPerMs;
+    const x = nowLineX + (clap.time - audioCtxCurrentTime) * 1000 * pixelsPerMs;
     if (x < -20 || x > w + 20) continue;
 
     const color = clap.rating === "hit" ? successColor : errorColor;
@@ -839,7 +875,7 @@ function drawEKG() {
   for (const missedIdx of state.missedBeats) {
     if (missedIdx >= state.beatTimes.length) continue;
     const bt = state.beatTimes[missedIdx];
-    const x = nowLineX + (bt - now) * pixelsPerMs;
+    const x = nowLineX + (bt - audioCtxCurrentTime) * 1000 * pixelsPerMs;
     if (x < -20 || x > w + 20) continue;
 
     // X mark for missed beat
